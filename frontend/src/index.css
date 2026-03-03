@@ -1,0 +1,67 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: #F7F5F2;
+  --surface: #FFFFFF;
+  --dark: #2D2830;
+  --border: #E8E4DF;
+  --text-primary: #2D2830;
+  --text-secondary: #6B6560;
+
+  --pink: #F5395A;
+  --green: #00C896;
+  --blue: #5B6FE8;
+  --yellow: #F5D647;
+
+  font-family: 'Poppins', system-ui, sans-serif;
+  color: var(--text-primary);
+  background-color: var(--bg);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  min-width: 320px;
+  background-color: var(--bg);
+}
+
+/* Base headings */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: 'Archivo Black', sans-serif;
+  color: var(--text-primary);
+}
+
+/* Fade-in animation */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.25s ease both;
+}
+
+/* Button press micro-interaction */
+button:active {
+  transform: scale(0.98);
+}

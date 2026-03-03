@@ -1,0 +1,98 @@
+# =============================================================================
+# Koolchaine Hub — Root .gitignore
+# =============================================================================
+
+# ── Secrets & environment files ──────────────────────────────────────────────
+.env
+.env.*
+*.env
+.env.local
+.env.production
+.env.staging
+.env.test
+
+# ── Python ───────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+.Python
+pip-log.txt
+pip-delete-this-directory.txt
+.tox/
+.coverage
+.pytest_cache/
+*.egg-info/
+dist/
+build/
+eggs/
+parts/
+var/
+sdist/
+wheels/
+*.egg
+venv/
+.venv/
+env/
+ENV/
+
+# ── Node / Frontend ───────────────────────────────────────────────────────────
+node_modules/
+frontend/dist/
+frontend/build/
+.npm
+*.tgz
+package-lock.json.bak
+
+# ── Build artifacts ──────────────────────────────────────────────────────────
+*.log
+logs/
+*.sqlite
+*.db
+*.db-shm
+*.db-wal
+
+# ── OS files ──────────────────────────────────────────────────────────────────
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# ── IDE / Editor ─────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ── Insta-post runtime data ──────────────────────────────────────────────────
+insta-post/data/
+insta-post/media/
+insta-post/rejected/
+insta-post/single/
+insta-post/carrousel/
+insta-post/video/
+insta-post/static/uploads/
+insta-post/caption_memory.json
+insta-post/temp_script_*.js
+insta-post/check_js.js
+insta-post/*.json
+!insta-post/*requirements*.txt
+!insta-post/package*.json
+# Duplicate directory (keep only the top-level one)
+insta-post/Insta\ post/
+
+# ── Docker ────────────────────────────────────────────────────────────────────
+*.pid
+
+# ── Google service account keys ──────────────────────────────────────────────
+*.json
+!package.json
+!package-lock.json
+!tsconfig*.json
+!jsconfig*.json

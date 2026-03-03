@@ -1,0 +1,54 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: koolchaine_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=koolchaine
+    ports:
+      - "5432:5432"
+
+  backend:
+    build: ./backend
+    container_name: koolchaine_backend
+    env_file:
+      - .env
+    volumes:
+      - ./backend:/code
+    environment:
+      - DATABASE_URL=postgresql://postgres:password@db/koolchaine
+      - SECRET_KEY=development_secret_key_change_me
+    depends_on:
+      - db
+    ports:
+      - "8000:8000"
+
+  frontend:
+    build: ./frontend
+    container_name: koolchaine_frontend
+    depends_on:
+      - backend
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    ports:
+      - "80:80"
+
+  insta-post:
+    build: ./insta-post
+    container_name: koolchaine_insta_post
+    restart: always
+    env_file:
+      - .env
+    volumes:
+      - ./insta-post/media:/app/media
+      - ./insta-post/data:/app/data
+    ports:
+      - "8001:8001"
+
+volumes:
+  postgres_data:
