@@ -3,7 +3,7 @@ import io
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 
 from app.db.session import get_db
 from app.models.company import Company
@@ -81,8 +81,28 @@ def enrich_contacts(company_ids: List[int], db: Session = Depends(get_db)):
     return {"message": f"{added_contacts} contacts enriched and added."}
 
 @router.get("/contacts", response_model=List[ContactOut])
-def get_contacts(db: Session = Depends(get_db)):
-    return db.query(Contact).limit(100).all()
+def get_contacts(
+    campaign_id: Optional[int] = None,
+    status: Optional[str] = None,
+    naf_code: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    query = db.query(Contact).join(Company)
+    
+    if campaign_id:
+        query = query.filter(Contact.campaign_id == campaign_id)
+    if status:
+        query = query.filter(Contact.status == status)
+    if naf_code:
+        query = query.filter(Company.naf_code == naf_code)
+        
+    return query.order_by(Contact.created_at.desc()).limit(1000).all()
+
+@router.delete("/contacts/bulk")
+def bulk_delete_contacts(contact_ids: List[int], db: Session = Depends(get_db)):
+    db.query(Contact).filter(Contact.id.in_(contact_ids)).delete(synchronize_session=False)
+    db.commit()
+    return {"message": f"{len(contact_ids)} contacts deleted."}
 
 @router.post("/sequences", response_model=EmailSequenceOut)
 def create_sequence(sequence_in: EmailSequenceCreate, db: Session = Depends(get_db)):
@@ -149,9 +169,125 @@ def launch_sequence(sequence_id: int, contact_ids: List[int], db: Session = Depe
     db.commit()
     return {"message": f"Sequence launched for {scheduled_count} contacts."}
     
+from app.models.template import EmailTemplate
+from app.schemas.prospection import EmailTemplateCreate, EmailTemplateOut
+
+@router.get("/templates", response_model=List[EmailTemplateOut])
+def list_templates(db: Session = Depends(get_db)):
+    return db.query(EmailTemplate).order_by(EmailTemplate.updated_at.desc()).all()
+
+@router.post("/templates", response_model=EmailTemplateOut)
+def create_template(template_in: EmailTemplateCreate, db: Session = Depends(get_db)):
+    new_template = EmailTemplate(
+        name=template_in.name,
+        category=template_in.category,
+        subject=template_in.subject,
+        html_content=template_in.html_content,
+        placeholders=template_in.placeholders,
+        has_signature=template_in.has_signature,
+        signature_html=template_in.signature_html
+    )
+    db.add(new_template)
+    db.commit()
+    db.refresh(new_template)
+    return new_template
+
+@router.put("/templates/{template_id}", response_model=EmailTemplateOut)
+def update_template(template_id: int, template_in: EmailTemplateCreate, db: Session = Depends(get_db)):
+    template = db.query(EmailTemplate).filter(EmailTemplate.id == template_id).first()
+    if not template:
+        raise HTTPException(status_code=404, detail="Template not found")
+        
+    for key, value in template_in.model_dump().items():
+        setattr(template, key, value)
+        
+    db.commit()
+    db.refresh(template)
+    return template
+
+@router.delete("/templates/{template_id}")
+def delete_template(template_id: int, db: Session = Depends(get_db)):
+    template = db.query(EmailTemplate).filter(EmailTemplate.id == template_id).first()
+    if not template:
+        raise HTTPException(status_code=404, detail="Template not found")
+    db.delete(template)
+    db.commit()
+    return {"message": "Template deleted"}
+
+@router.post("/templates/{template_id}/duplicate", response_model=EmailTemplateOut)
+def duplicate_template(template_id: int, db: Session = Depends(get_db)):
+    original = db.query(EmailTemplate).filter(EmailTemplate.id == template_id).first()
+    if not original:
+        raise HTTPException(status_code=404, detail="Template not found")
+        
+    new_template = EmailTemplate(
+        name=f"{original.name} (Copie)",
+        category=original.category,
+        subject=original.subject,
+        html_content=original.html_content,
+        placeholders=original.placeholders,
+        has_signature=original.has_signature,
+        signature_html=original.signature_html
+    )
+    db.add(new_template)
+    db.commit()
+    db.refresh(new_template)
+    return new_template
+
+from app.models.campaign import Campaign, CampaignStatus
+from app.services.sirene import sirene_service
+from app.services.campaign_processor import campaign_processor
+
+@router.get("/campaigns")
+def list_campaigns(db: Session = Depends(get_db)):
+    return db.query(Campaign).order_by(Campaign.created_at.desc()).all()
+
+@router.post("/campaigns")
+def create_campaign(data: Dict[str, Any], db: Session = Depends(get_db)):
+    new_campaign = Campaign(
+        name=data.get("name"),
+        filters=data.get("filters"),
+        role_priority=data.get("role_priority", []),
+        sequence_id=data.get("sequence_id"),
+        status=CampaignStatus.PENDING,
+        stats={"total_found": 0, "enriched": 0}
+    )
+    db.add(new_campaign)
+    db.commit()
+    db.refresh(new_campaign)
+    
+    # Start processing in background
+    campaign_processor.start_campaign(new_campaign.id)
+    
+    return new_campaign
+
+@router.post("/campaigns/estimate")
+def estimate_campaign(filters: Dict[str, Any]):
+    count = sirene_service.estimate_count(filters)
+    return {"estimated_count": count}
+
+@router.post("/campaigns/{campaign_id}/pause")
+def pause_campaign(campaign_id: int, db: Session = Depends(get_db)):
+    campaign = db.query(Campaign).filter(Campaign.id == campaign_id).first()
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    campaign.status = CampaignStatus.PAUSED
+    db.commit()
+    return campaign
+
+@router.post("/campaigns/{campaign_id}/resume")
+def resume_campaign(campaign_id: int, db: Session = Depends(get_db)):
+    campaign = db.query(Campaign).filter(Campaign.id == campaign_id).first()
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    campaign.status = CampaignStatus.PROCESSING
+    db.commit()
+    # Logic to restart the background job if needed would go here
+    campaign_processor.start_campaign(campaign.id)
+    return campaign
+
 @router.get("/stats")
 def get_pipeline_stats(db: Session = Depends(get_db)):
-
     total = db.query(func.count(Contact.id)).scalar() or 0
     contacted = db.query(func.count(Contact.id)).filter(Contact.status != ContactStatus.NEW).scalar() or 0
     replied = db.query(func.count(Contact.id)).filter(Contact.status == ContactStatus.REPLIED).scalar() or 0

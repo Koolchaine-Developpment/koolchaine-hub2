@@ -1,268 +1,299 @@
-import React, { useState, useEffect } from 'react'
-import axios from 'axios'
-import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Cell } from 'recharts'
-import { Download, TrendingUp, TrendingDown, Inbox, Users, Instagram } from 'lucide-react'
-import html2pdf from 'html2pdf.js'
+import React, { useState, useEffect } from 'react';
+import {
+    LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+    BarChart, Bar, Cell, Legend
+} from 'recharts';
+import { TrendingUp, ShoppingBag, Users, Instagram, Clock, CheckCircle, ArrowRight } from 'lucide-react';
 
 const AnalyticsPage = () => {
-    const [overview, setOverview] = useState(null)
-    const [revenueData, setRevenueData] = useState([])
-    const [funnelData, setFunnelData] = useState([])
-    const [recentData, setRecentData] = useState({ orders: [], contacts: [] })
-    const [socialData, setSocialData] = useState({ next_posts: [] })
-    const [loading, setLoading] = useState(true)
+    const [overview, setOverview] = useState(null);
+    const [revenueData, setRevenueData] = useState([]);
+    const [prospectionData, setProspectionData] = useState([]);
+    const [recent, setRecent] = useState(null);
+    const [loading, setLoading] = useState(true);
 
-    const fetchAnalytics = async () => {
+    const fetchData = async () => {
         try {
-            const [ovRes, revRes, funRes, recentRes, socRes] = await Promise.all([
-                axios.get('/api/v1/analytics/overview', { withCredentials: true }),
-                axios.get('/api/v1/analytics/revenue', { withCredentials: true }),
-                axios.get('/api/v1/analytics/prospection', { withCredentials: true }),
-                axios.get('/api/v1/analytics/recent', { withCredentials: true }),
-                axios.get('/api/v1/analytics/social', { withCredentials: true })
-            ])
+            const [ovRes, revRes, prosRes, recRes] = await Promise.all([
+                fetch('/api/v1/analytics/overview'),
+                fetch('/api/v1/analytics/revenue'),
+                fetch('/api/v1/analytics/prospection'),
+                fetch('/api/v1/analytics/recent')
+            ]);
 
-            setOverview(ovRes.data)
+            const ov = await ovRes.json();
+            const rev = await revRes.json();
+            const pros = await prosRes.json();
+            const rec = await recRes.json();
 
-            // Format revenue dates slightly for chart X-axis
-            const formattedRev = revRes.data.map(d => ({
-                ...d,
-                name: new Date(d.name).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })
-            }))
-            setRevenueData(formattedRev)
-
-            setFunnelData(funRes.data)
-            setRecentData(recentRes.data)
-            setSocialData(socRes.data)
-
-        } catch (err) {
-            console.error('Failed to fetch analytics', err)
-        } finally {
-            setLoading(false)
+            setOverview(ov);
+            setRevenueData(rev);
+            setProspectionData(pros);
+            setRecent(rec);
+            setLoading(false);
+        } catch (error) {
+            console.error("Error fetching analytics:", error);
+            setLoading(false);
         }
-    }
+    };
 
     useEffect(() => {
-        fetchAnalytics()
-        const autoRefresh = setInterval(fetchAnalytics, 300000) // 5 mins
-        return () => clearInterval(autoRefresh)
-    }, [])
+        fetchData();
+        const interval = setInterval(fetchData, 5 * 60 * 1000); // 5 mins
+        return () => clearInterval(interval);
+    }, []);
 
-    const handlePdfExport = () => {
-        const element = document.getElementById('analytics-report')
-        const opt = {
-            margin: 10,
-            filename: `Rapport_Koolchaine_${new Date().toLocaleDateString('fr-FR').replace(/\//g, '-')}.pdf`,
-            image: { type: 'jpeg', quality: 0.98 },
-            html2canvas: { scale: 2 },
-            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-        }
-        html2pdf().set(opt).from(element).save()
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center min-h-screen bg-[#FDFCFB]">
+                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#F5395A]"></div>
+            </div>
+        );
     }
 
-    if (loading && !overview) {
-        return <div className="flex h-64 items-center justify-center text-slate-500">Chargement des analytiques...</div>
-    }
-
-    const CustomTooltip = ({ active, payload, label }) => {
-        if (active && payload && payload.length) {
-            return (
-                <div className="bg-brand-surface p-4 border border-brand-border shadow-[0_8px_30px_rgba(0,0,0,0.12)] rounded-[10px] font-sans">
-                    <p className="text-brand-text-secondary font-medium mb-1">{label}</p>
-                    <p className="text-accent-pink font-heading text-lg">
-                        {payload[0].name === "Revenus" ? `€${payload[0].value.toFixed(2)}` : payload[0].value}
-                    </p>
-                </div>
-            )
-        }
-        return null
-    }
-
-    const COLORS = ['#F5395A', '#5B6FE8', '#00C896', '#F5D647']
+    const EmptyState = ({ message }) => (
+        <div className="flex flex-col items-center justify-center p-8 text-center h-48">
+            <p className="text-[#8B837E] italic font-poppins">{message || "Aucune donnée disponible pour le moment."}</p>
+        </div>
+    );
 
     return (
-        <div id="analytics-report" className="pb-12 animate-fade-in font-sans">
-            <header className="mb-8 flex justify-between items-end">
-                <div>
-                    <h2 className="text-[32px] font-heading text-brand-dark">Vue Globale Analytics</h2>
-                    <p className="text-brand-text-secondary font-sans mt-1">Données consolidées en temps réel.</p>
-                </div>
-                <button
-                    onClick={handlePdfExport}
-                    data-html2canvas-ignore
-                    className="flex items-center gap-2 bg-brand-surface border border-brand-border text-brand-text-primary hover:bg-brand-bg hover:text-accent-pink font-sans font-medium py-2 px-5 rounded-[6px] shadow-sm transition-colors active:scale-[0.98]"
-                >
-                    <Download size={18} /> Exporter le rapport
-                </button>
-            </header>
+        <div className="p-8 bg-[#FDFCFB] min-h-screen space-y-8 font-poppins">
+            {/* --- Section 1: KPI Cards --- */}
+            <h1 className="text-3xl font-archivo font-black text-[#2D2830] mb-6 tracking-tight uppercase">Tableau de Bord Analytics</h1>
 
-            {/* SECTION 1: GLOBAL KPIs */}
-            <h3 className="text-xl font-heading text-brand-dark mb-5 border-b border-brand-border pb-2">Indicateurs Clés de Performance</h3>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
-                <div className="bg-brand-surface p-6 rounded-[10px] border border-brand-border shadow-sm relative overflow-hidden group hover:border-accent-pink transition-colors">
-                    <div className="absolute top-0 right-0 p-4 opacity-5 text-accent-pink group-hover:scale-110 transition-transform"><Inbox size={64} /></div>
-                    <p className="text-sm font-sans font-medium text-brand-text-secondary mb-2">Revenus du mois</p>
-                    <p className="text-3xl font-heading text-brand-text-primary mb-3">€{overview?.revenue_month?.toFixed(2) || "0.00"}</p>
-                    <div className={`flex items-center gap-1.5 text-sm font-sans font-medium ${overview?.revenue_change_pct >= 0 ? 'text-accent-green' : 'text-accent-pink'}`}>
-                        {overview?.revenue_change_pct >= 0 ? <TrendingUp size={16} /> : <TrendingDown size={16} />}
-                        <span>{overview?.revenue_change_pct > 0 ? "+" : ""}{overview?.revenue_change_pct || 0}% vs mois dernier</span>
-                    </div>
-                </div>
-
-                <div className="bg-brand-surface p-6 rounded-[10px] border border-brand-border shadow-sm relative overflow-hidden group hover:border-accent-yellow transition-colors">
-                    <div className="absolute top-0 right-0 p-4 opacity-5 text-accent-yellow group-hover:scale-110 transition-transform"><Inbox size={64} /></div>
-                    <p className="text-sm font-sans font-medium text-brand-text-secondary mb-2">Commandes en attente</p>
-                    <p className="text-3xl font-heading text-brand-text-primary mb-3">{overview?.unfulfilled_orders || 0}</p>
-                    <p className="text-sm font-sans text-brand-text-secondary">Prêtes à être expédiées</p>
-                </div>
-
-                <div className="bg-brand-surface p-6 rounded-[10px] border border-brand-border shadow-sm relative overflow-hidden group hover:border-accent-blue transition-colors">
-                    <div className="absolute top-0 right-0 p-4 opacity-5 text-accent-blue group-hover:scale-110 transition-transform"><Users size={64} /></div>
-                    <p className="text-sm font-sans font-medium text-brand-text-secondary mb-2">Prospects (7j)</p>
-                    <p className="text-3xl font-heading text-brand-text-primary mb-3">{overview?.contacted_week || 0}</p>
-                    <p className="text-sm font-sans text-brand-text-secondary">Contactés cette semaine</p>
-                </div>
-
-                <div className="bg-brand-surface p-6 rounded-[10px] border border-brand-border shadow-sm relative overflow-hidden group hover:border-accent-pink transition-colors">
-                    <div className="absolute top-0 right-0 p-4 opacity-5 text-accent-pink group-hover:scale-110 transition-transform"><Instagram size={64} /></div>
-                    <p className="text-sm font-sans font-medium text-brand-text-secondary mb-2">Posts Insta (Mois)</p>
-                    <p className="text-3xl font-heading text-brand-text-primary mb-3">{overview?.social_posts_month || 0}</p>
-                    <p className="text-sm font-sans text-brand-text-secondary">Taux engag.: <span className="text-accent-pink font-semibold">{overview?.engagement_rate || 0}%</span></p>
-                </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <KPICard
+                    title="Revenus du mois"
+                    value={`${overview?.revenue_month?.toLocaleString() || 0} €`}
+                    trend={`${overview?.revenue_change_pct > 0 ? '+' : ''}${overview?.revenue_change_pct}% vs mois dernier`}
+                    icon={<TrendingUp className="text-[#F5395A]" />}
+                    color="pink"
+                />
+                <KPICard
+                    title="Commandes en attente"
+                    value={overview?.unfulfilled_orders || 0}
+                    icon={<ShoppingBag className="text-[#8B837E]" />}
+                    color="gray"
+                />
+                <KPICard
+                    title="Prospects contactés"
+                    value={overview?.contacted_week || 0}
+                    trend="Cette semaine"
+                    icon={<Users className="text-[#F5395A]" />}
+                    color="pink"
+                />
+                <KPICard
+                    title="Posts Instagram"
+                    value={overview?.social_posts_month || 0}
+                    trend="Mois en cours"
+                    icon={<Instagram className="text-[#8B837E]" />}
+                    color="gray"
+                />
             </div>
 
-            {/* SECTION 2: CHARTS */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-10">
-                {/* Revenue Line Chart */}
-                <div className="bg-brand-surface p-6 rounded-[10px] border border-brand-border shadow-sm">
-                    <h3 className="text-lg font-heading text-brand-dark mb-6">Évolution des revenus (30 Jours)</h3>
-                    <div className="h-72 w-full font-sans">
+            {/* --- Section 2: Charts --- */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-8">
+                {/* Revenue Chart */}
+                <div className="bg-white p-6 rounded-xl border border-[#E8E4DF] shadow-sm">
+                    <h2 className="text-lg font-archivo font-bold text-[#2D2830] mb-6 flex items-center gap-2">
+                        <TrendingUp size={20} className="text-[#F5395A]" />
+                        Évolution des Revenus (30j)
+                    </h2>
+                    <div className="h-72 w-full">
                         {revenueData.length > 0 ? (
                             <ResponsiveContainer width="100%" height="100%">
-                                <LineChart data={revenueData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
-                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E8E4DF" />
-                                    <XAxis dataKey="name" tick={{ fill: '#6B6560', fontSize: 12 }} tickMargin={10} axisLine={false} tickLine={false} />
-                                    <YAxis tick={{ fill: '#6B6560', fontSize: 12 }} axisLine={false} tickLine={false} tickFormatter={(val) => `€${val}`} />
-                                    <RechartsTooltip content={<CustomTooltip />} />
-                                    <Line type="monotone" name="Revenus" dataKey="value" stroke="#F5395A" strokeWidth={3} dot={false} activeDot={{ r: 6, fill: '#F5395A', stroke: '#fff', strokeWidth: 2 }} />
+                                <LineChart data={revenueData}>
+                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F0EDE9" />
+                                    <XAxis
+                                        dataKey="date"
+                                        axisLine={false}
+                                        tickLine={false}
+                                        tick={{ fill: '#8B837E', fontSize: 12 }}
+                                        tickFormatter={(val) => val.split('-').reverse().slice(0, 2).join('/')}
+                                    />
+                                    <YAxis
+                                        axisLine={false}
+                                        tickLine={false}
+                                        tick={{ fill: '#8B837E', fontSize: 12 }}
+                                        tickFormatter={(val) => `${val}€`}
+                                    />
+                                    <Tooltip
+                                        contentStyle={{ borderRadius: '8px', border: '1px solid #E8E4DF', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                                        labelFormatter={(val) => val.split('-').reverse().join('/')}
+                                    />
+                                    <Line
+                                        type="monotone"
+                                        dataKey="revenue"
+                                        stroke="#F5395A"
+                                        strokeWidth={3}
+                                        dot={{ r: 4, fill: '#F5395A', strokeWidth: 2, stroke: '#fff' }}
+                                        activeDot={{ r: 6, strokeWidth: 0 }}
+                                    />
                                 </LineChart>
                             </ResponsiveContainer>
                         ) : (
-                            <div className="h-full flex items-center justify-center text-brand-text-secondary italic">Pas de données de revenus suffisantes.</div>
+                            <EmptyState message="Pas de revenus enregistrés sur les 30 derniers jours." />
                         )}
                     </div>
                 </div>
 
-                {/* Prospection Funnel Bar Chart */}
-                <div className="bg-brand-surface p-6 rounded-[10px] border border-brand-border shadow-sm">
-                    <h3 className="text-lg font-heading text-brand-dark mb-6">Pipeline de Prospection</h3>
-                    <div className="h-72 w-full font-sans">
-                        {funnelData.length > 0 ? (
+                {/* Prospection Funnel */}
+                <div className="bg-white p-6 rounded-xl border border-[#E8E4DF] shadow-sm">
+                    <h2 className="text-lg font-archivo font-bold text-[#2D2830] mb-6 flex items-center gap-2">
+                        <Users size={20} className="text-[#F5395A]" />
+                        Tunnel de Prospection
+                    </h2>
+                    <div className="h-72 w-full">
+                        {prospectionData.length > 0 ? (
                             <ResponsiveContainer width="100%" height="100%">
-                                <BarChart data={funnelData} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-                                    <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#E8E4DF" />
-                                    <XAxis type="number" tick={{ fill: '#6B6560', fontSize: 12 }} axisLine={false} tickLine={false} />
-                                    <YAxis dataKey="name" type="category" tick={{ fill: '#2D2830', fontSize: 13, fontWeight: 500 }} axisLine={false} tickLine={false} />
-                                    <RechartsTooltip content={<CustomTooltip />} cursor={{ fill: '#F7F5F2' }} />
-                                    <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={24}>
-                                        {funnelData.map((entry, index) => (
-                                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                <BarChart data={prospectionData} layout="vertical">
+                                    <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#F0EDE9" />
+                                    <XAxis type="number" hide />
+                                    <YAxis
+                                        dataKey="step"
+                                        type="category"
+                                        axisLine={false}
+                                        tickLine={false}
+                                        tick={{ fill: '#2D2830', fontWeight: 600, fontSize: 13 }}
+                                        width={100}
+                                    />
+                                    <Tooltip
+                                        cursor={{ fill: '#FDFCFB' }}
+                                        contentStyle={{ borderRadius: '8px', border: '1px solid #E8E4DF' }}
+                                    />
+                                    <Bar dataKey="value" radius={[0, 4, 4, 0]}>
+                                        {prospectionData.map((entry, index) => (
+                                            <Cell key={`cell-${index}`} fill={index === prospectionData.length - 1 ? '#F5395A' : '#CABFBD'} />
                                         ))}
                                     </Bar>
                                 </BarChart>
                             </ResponsiveContainer>
                         ) : (
-                            <div className="h-full flex items-center justify-center text-brand-text-secondary italic">Pas de données de prospection.</div>
+                            <EmptyState message="Aucun contact dans le tunnel de prospection." />
                         )}
                     </div>
                 </div>
             </div>
 
-            {/* SECTION 3: RECENT ACTIVITIES */}
-            <h3 className="text-xl font-heading text-brand-dark mb-5 border-b border-brand-border pb-2">Activité Récente</h3>
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 font-sans">
-                {/* Module Shopify */}
-                <div className="bg-brand-surface rounded-[10px] border border-brand-border shadow-sm overflow-hidden flex flex-col">
-                    <div className="bg-brand-bg px-5 py-4 border-b border-brand-border flex items-center gap-3">
-                        <ShoppingBag className="text-accent-blue" size={20} />
-                        <h4 className="font-heading text-brand-dark">Shopify (Dernières commandes)</h4>
+            {/* --- Section 3: Summaries --- */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 pb-8">
+                {/* Shopify Recent */}
+                <div className="bg-white rounded-xl border border-[#E8E4DF] shadow-sm overflow-hidden flex flex-col">
+                    <div className="p-4 bg-[#FDFCFB] border-bottom border-[#E8E4DF] flex justify-between items-center">
+                        <h3 className="font-archivo font-bold text-[#2D2830] uppercase text-xs tracking-wider">Shopify : Dernières Commandes</h3>
+                        <ShoppingBag size={16} className="text-[#8B837E]" />
                     </div>
-                    <div className="p-0 flex-1 overflow-auto">
-                        {recentData.orders.length > 0 ? (
-                            <ul className="divide-y divide-brand-border">
-                                {recentData.orders.map(o => (
-                                    <li key={o.id} className="p-4 hover:bg-brand-bg transition-colors">
-                                        <div className="flex justify-between items-start mb-1">
-                                            <span className="font-medium text-brand-text-primary">{o.number}</span>
-                                            <span className="font-bold font-heading text-brand-dark">€{o.total.toFixed(2)}</span>
+                    <div className="flex-1">
+                        {recent?.orders?.length > 0 ? (
+                            <div className="divide-y divide-[#F0EDE9]">
+                                {recent.orders.map(order => (
+                                    <div key={order.id} className="p-4 flex justify-between items-center hover:bg-[#FDFCFB] transition-colors">
+                                        <div>
+                                            <p className="font-semibold text-sm text-[#2D2830]">#{order.number}</p>
+                                            <p className="text-xs text-[#8B837E]">{order.customer}</p>
                                         </div>
-                                        <div className="flex justify-between items-center text-xs text-brand-text-secondary">
-                                            <span>{o.customer}</span>
-                                            <span>{o.date}</span>
+                                        <div className="text-right">
+                                            <p className="font-bold text-sm text-[#F5395A]">{order.total} €</p>
+                                            <p className="text-[10px] text-[#8B837E]">{order.date}</p>
                                         </div>
-                                    </li>
+                                    </div>
                                 ))}
-                            </ul>
+                            </div>
                         ) : (
-                            <div className="p-8 text-center text-brand-text-secondary italic text-sm">Aucune commande récente.</div>
+                            <EmptyState message="Aucune commande récente." />
                         )}
                     </div>
                 </div>
 
-                {/* Module Prospection */}
-                <div className="bg-brand-surface rounded-[10px] border border-brand-border shadow-sm overflow-hidden flex flex-col">
-                    <div className="bg-brand-bg px-5 py-4 border-b border-brand-border flex items-center gap-3">
-                        <Users className="text-accent-green" size={20} />
-                        <h4 className="font-heading text-brand-dark">Prospection (Derniers ajouts)</h4>
+                {/* Prospection Recent */}
+                <div className="bg-white rounded-xl border border-[#E8E4DF] shadow-sm overflow-hidden flex flex-col">
+                    <div className="p-4 bg-[#FDFCFB] border-bottom border-[#E8E4DF] flex justify-between items-center">
+                        <h3 className="font-archivo font-bold text-[#2D2830] uppercase text-xs tracking-wider">Prospection : Derniers Contacts</h3>
+                        <Users size={16} className="text-[#8B837E]" />
                     </div>
-                    <div className="p-0 flex-1 overflow-auto">
-                        {recentData.contacts.length > 0 ? (
-                            <ul className="divide-y divide-brand-border">
-                                {recentData.contacts.map(c => (
-                                    <li key={c.id} className="p-4 hover:bg-brand-bg transition-colors">
-                                        <div className="font-medium text-brand-text-primary mb-1">{c.name}</div>
-                                        <div className="flex justify-between items-center text-xs text-brand-text-secondary">
-                                            <span>{c.company}</span>
-                                            <span>{c.date}</span>
+                    <div className="flex-1">
+                        {recent?.contacts?.length > 0 ? (
+                            <div className="divide-y divide-[#F0EDE9]">
+                                {recent.contacts.map(contact => (
+                                    <div key={contact.id} className="p-4 flex justify-between items-center hover:bg-[#FDFCFB] transition-colors">
+                                        <div>
+                                            <p className="font-semibold text-sm text-[#2D2830]">{contact.name}</p>
+                                            <p className="text-xs text-[#8B837E] truncate w-32">{contact.company}</p>
                                         </div>
-                                    </li>
+                                        <div className="text-right">
+                                            <StatusBadge status={contact.status} />
+                                            <p className="text-[10px] text-[#8B837E] mt-1">{contact.date}</p>
+                                        </div>
+                                    </div>
                                 ))}
-                            </ul>
+                            </div>
                         ) : (
-                            <div className="p-8 text-center text-brand-text-secondary italic text-sm">Aucun prospect récent.</div>
+                            <EmptyState message="Aucun contact récent." />
                         )}
                     </div>
                 </div>
 
-                {/* Module Social */}
-                <div className="bg-brand-surface rounded-[10px] border border-brand-border shadow-sm overflow-hidden flex flex-col">
-                    <div className="bg-brand-bg px-5 py-4 border-b border-brand-border flex items-center gap-3">
-                        <Instagram className="text-accent-pink" size={20} />
-                        <h4 className="font-heading text-brand-dark">Réseaux Sociaux (Prochains posts)</h4>
+                {/* Social Next */}
+                <div className="bg-white rounded-xl border border-[#E8E4DF] shadow-sm overflow-hidden flex flex-col">
+                    <div className="p-4 bg-[#FDFCFB] border-bottom border-[#E8E4DF] flex justify-between items-center">
+                        <h3 className="font-archivo font-bold text-[#2D2830] uppercase text-xs tracking-wider">Social : Prochains Posts</h3>
+                        <Instagram size={16} className="text-[#8B837E]" />
                     </div>
-                    <div className="p-0 flex-1 overflow-auto">
-                        {socialData.next_posts && socialData.next_posts.length > 0 ? (
-                            <ul className="divide-y divide-brand-border">
-                                {socialData.next_posts.map((p, i) => (
-                                    <li key={i} className="p-4 hover:bg-brand-bg transition-colors">
-                                        <div className="font-medium text-brand-text-primary text-sm mb-2 line-clamp-2" title={p.caption}>
-                                            "{p.caption}"
+                    <div className="flex-1">
+                        {recent?.social?.length > 0 ? (
+                            <div className="divide-y divide-[#F0EDE9]">
+                                {recent.social.map(post => (
+                                    <div key={post.id} className="p-4 hover:bg-[#FDFCFB] transition-colors">
+                                        <p className="text-sm text-[#2D2830] line-clamp-2 leading-relaxed mb-2 italic">"{post.caption}"</p>
+                                        <div className="flex items-center gap-1.5 text-[#8B837E]">
+                                            <Clock size={12} />
+                                            <p className="text-[10px] font-semibold">{post.datetime}</p>
                                         </div>
-                                        <div className="flex justify-end text-xs font-semibold text-accent-pink">
-                                            {p.date}
-                                        </div>
-                                    </li>
+                                    </div>
                                 ))}
-                            </ul>
+                            </div>
                         ) : (
-                            <div className="p-8 text-center text-brand-text-secondary italic text-sm">Aucun post planifié.</div>
+                            <EmptyState message="Aucun post programmé." />
                         )}
                     </div>
                 </div>
-
             </div>
         </div>
-    )
-}
+    );
+};
 
-export default AnalyticsPage
+const KPICard = ({ title, value, trend, icon, color }) => (
+    <div className="bg-white p-6 rounded-xl border border-[#E8E4DF] shadow-sm">
+        <div className="flex justify-between items-start mb-4">
+            <div className={`p-2 rounded-lg ${color === 'pink' ? 'bg-[#FFF0F2]' : 'bg-[#FDFCFB]'}`}>
+                {icon}
+            </div>
+            {trend && (
+                <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${trend.includes('+') || trend.includes('semaine') ? 'bg-[#E8F8EE] text-[#0A8738]' : 'bg-[#FDFCFB] text-[#8B837E]'}`}>
+                    {trend}
+                </span>
+            )}
+        </div>
+        <div>
+            <p className="text-xs font-bold text-[#8B837E] uppercase tracking-wider mb-1 font-archivo">{title}</p>
+            <p className="text-2xl font-black text-[#2D2830] font-archivo">{value}</p>
+        </div>
+    </div>
+);
+
+const StatusBadge = ({ status }) => {
+    const config = {
+        new: { label: 'Nouveau', bg: 'bg-[#F0EDE9]', text: 'text-[#8B837E]' },
+        contacted: { label: 'Contacté', bg: 'bg-[#FFF0F2]', text: 'text-[#F5395A]' },
+        replied: { label: 'Répondu', bg: 'bg-[#E8F8EE]', text: 'text-[#0A8738]' }
+    };
+    const { label, bg, text } = config[status] || config.new;
+    return (
+        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${bg} ${text}`}>
+            {label}
+        </span>
+    );
+};
+
+export default AnalyticsPage;

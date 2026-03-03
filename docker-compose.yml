@@ -4,14 +4,12 @@ services:
   db:
     image: postgres:15-alpine
     container_name: koolchaine_db
+    env_file:
+      - .env
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=password
-      - POSTGRES_DB=koolchaine
-    ports:
-      - "5432:5432"
+    networks:
+      - koolchaine_network
 
   backend:
     build: ./backend
@@ -20,13 +18,10 @@ services:
       - .env
     volumes:
       - ./backend:/code
-    environment:
-      - DATABASE_URL=postgresql://postgres:password@db/koolchaine
-      - SECRET_KEY=development_secret_key_change_me
     depends_on:
       - db
-    ports:
-      - "8000:8000"
+    networks:
+      - koolchaine_network
 
   frontend:
     build: ./frontend
@@ -37,6 +32,8 @@ services:
       - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
     ports:
       - "80:80"
+    networks:
+      - koolchaine_network
 
   insta-post:
     build: ./insta-post
@@ -47,8 +44,12 @@ services:
     volumes:
       - ./insta-post/media:/app/media
       - ./insta-post/data:/app/data
-    ports:
-      - "8001:8001"
+    networks:
+      - koolchaine_network
+
+networks:
+  koolchaine_network:
+    driver: bridge
 
 volumes:
   postgres_data:

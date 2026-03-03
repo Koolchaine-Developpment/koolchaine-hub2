@@ -8,7 +8,8 @@ import {
     LogOut,
     User as UserIcon,
     Menu,
-    X
+    X,
+    Calculator
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 
@@ -17,6 +18,7 @@ const navItems = [
     { name: 'Shopify', path: '/shopify', icon: ShoppingBag },
     { name: 'Réseaux sociaux', path: '/social', icon: Instagram },
     { name: 'Analytics', path: '/analytics', icon: BarChart3 },
+    { name: 'Simulateur', path: '/simulateur', icon: Calculator },
 ]
 
 const pageTitles = {
@@ -24,6 +26,7 @@ const pageTitles = {
     '/shopify': 'Gestion Shopify',
     '/social': 'Réseaux Sociaux',
     '/analytics': 'Analytics',
+    '/simulateur': 'Simulateur de Devis',
 }
 
 const DashboardLayout = () => {

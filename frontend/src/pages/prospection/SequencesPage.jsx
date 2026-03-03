@@ -1,29 +1,52 @@
 import React, { useState, useEffect } from 'react'
 import axios from 'axios'
-import { Plus, Send, Clock, Trash2 } from 'lucide-react'
+import { Plus, Send, Clock, Trash2, GripVertical, GitFork, ArrowDown } from 'lucide-react'
+import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
+import { SortableContext, verticalListSortingStrategy, sortableKeyboardCoordinates } from '@dnd-kit/sortable'
+import { SortableItem } from './SortableItem' // local sub-component
 
-const SequencesPage = () => {
+const api = axios.create({
+    baseURL: import.meta.env.VITE_API_URL || 'http://localhost/api/v1',
+    headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+})
+
+export default function SequencesPage() {
     const [sequences, setSequences] = useState([])
+    const [templates, setTemplates] = useState([])
     const [showBuilder, setShowBuilder] = useState(false)
     const [newSequence, setNewSequence] = useState({ name: '', steps: [] })
 
-    const fetchSequences = async () => {
+    const fetchData = async () => {
         try {
-            const res = await axios.get('/api/v1/prospection/sequences', { withCredentials: true })
-            setSequences(res.data)
+            const [seqRes, tplRes] = await Promise.all([
+                api.get('/prospection/sequences'),
+                api.get('/prospection/templates')
+            ])
+            setSequences(seqRes.data)
+            setTemplates(tplRes.data)
         } catch (err) {
             console.error(err)
         }
     }
 
-    useEffect(() => {
-        fetchSequences()
-    }, [])
+    useEffect(() => { fetchData() }, [])
+
+    const sensors = useSensors(
+        useSensor(PointerSensor),
+        useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+    )
 
     const addStep = () => {
         setNewSequence(prev => ({
             ...prev,
-            steps: [...prev.steps, { delay_days: 1, subject: '', body_template: '' }]
+            steps: [...prev.steps, {
+                id: `step-${Date.now()}`, // Temporary ID for DND
+                delay_days: 1,
+                delay_hours: 0,
+                template_id: templates.length > 0 ? templates[0].id : '',
+                condition: 'always',
+                stop_on_reply: true
+            }]
         }))
     }
 
@@ -42,16 +65,38 @@ const SequencesPage = () => {
         })
     }
 
+    const handleDragEnd = (event) => {
+        const { active, over } = event
+        if (active.id !== over.id) {
+            setNewSequence((prev) => {
+                const oldIndex = prev.steps.findIndex(s => s.id === active.id)
+                const newIndex = prev.steps.findIndex(s => s.id === over.id)
+                const newSteps = Array.from(prev.steps)
+                const [moved] = newSteps.splice(oldIndex, 1)
+                newSteps.splice(newIndex, 0, moved)
+                return { ...prev, steps: newSteps }
+            })
+        }
+    }
+
     const saveSequence = async () => {
         if (!newSequence.name || newSequence.steps.length === 0) {
             alert("Veuillez donner un nom et ajouter au moins une étape.")
             return
         }
         try {
-            await axios.post('/api/v1/prospection/sequences', newSequence, { withCredentials: true })
+            // Strip the temporary 'id' from steps before sending to API
+            const payload = {
+                name: newSequence.name,
+                steps: newSequence.steps.map(s => {
+                    const { id, ...rest } = s
+                    return { ...rest, template_id: parseInt(rest.template_id) }
+                })
+            }
+            await api.post('/prospection/sequences', payload)
             setShowBuilder(false)
             setNewSequence({ name: '', steps: [] })
-            fetchSequences()
+            fetchData()
         } catch (err) {
             alert("Erreur lors de la sauvegarde.")
         }
@@ -59,155 +104,147 @@ const SequencesPage = () => {
 
     if (showBuilder) {
         return (
-            <div className="bg-brand-surface rounded-[10px] shadow-[0_8px_30px_rgba(0,0,0,0.12)] border border-brand-border p-8 max-w-3xl mx-auto animate-fade-in font-sans">
-                <h3 className="text-[26px] font-heading text-brand-dark mb-6">Créer une Séquence</h3>
+            <div style={{ padding: '24px', backgroundColor: '#FFF', borderRadius: '12px', border: '1px solid #E8E4DF', fontFamily: 'Poppins, sans-serif' }}>
+                <h3 style={{ fontSize: '20px', fontWeight: 600, color: '#2D2830', marginBottom: '24px' }}>Constructeur de Séquence</h3>
+                <input
+                    type="text"
+                    value={newSequence.name}
+                    onChange={e => setNewSequence({ ...newSequence, name: e.target.value })}
+                    style={{ ...inputStyle, width: '100%', marginBottom: '32px', fontSize: '16px' }}
+                    placeholder="Nom de la séquence (ex: Campagne Q3)"
+                />
 
-                <div className="mb-6 space-y-2">
-                    <label className="text-sm font-medium font-sans text-brand-text-primary">Nom de la séquence</label>
-                    <input
-                        type="text"
-                        value={newSequence.name}
-                        onChange={e => setNewSequence({ ...newSequence, name: e.target.value })}
-                        className="w-full p-3 bg-brand-bg border border-brand-border rounded-[6px] text-brand-text-primary placeholder-brand-text-secondary/50 focus:outline-none focus:ring-2 focus:ring-accent-pink/20 focus:border-accent-pink transition-all font-sans"
-                        placeholder="Ex: Campagne Cibles Agences Q3"
-                    />
-                </div>
+                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                    <SortableContext items={newSequence.steps.map(s => s.id)} strategy={verticalListSortingStrategy}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', position: 'relative' }}>
+                            {newSequence.steps.map((step, index) => (
+                                <SortableItem key={step.id} id={step.id}>
+                                    <div style={{ backgroundColor: '#F9F8F6', border: '1px solid #E8E4DF', borderRadius: '8px', padding: '16px', display: 'flex', gap: '16px', alignItems: 'flex-start' }}>
+                                        <div style={{ cursor: 'grab', color: '#A39C93', paddingTop: '8px' }}>
+                                            <GripVertical size={20} />
+                                        </div>
 
-                <div className="space-y-6">
-                    {newSequence.steps.map((step, index) => (
-                        <div key={index} className="p-6 border border-brand-border rounded-[10px] bg-brand-bg/50 relative transition-all">
-                            <button
-                                onClick={() => removeStep(index)}
-                                className="absolute top-4 right-4 text-brand-text-secondary hover:text-accent-pink transition-colors"
-                                title="Supprimer l'étape"
-                            >
-                                <Trash2 size={18} />
-                            </button>
+                                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                            {/* Top Row: Condition & Output */}
+                                            <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                                                <div style={{
+                                                    backgroundColor: step.condition === 'always' ? '#E0E7FF' : '#FEF3C7',
+                                                    color: step.condition === 'always' ? '#4338CA' : '#D97706',
+                                                    padding: '4px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px'
+                                                }}>
+                                                    {step.condition !== 'always' && <GitFork size={12} />}
+                                                    {step.condition === 'always' ? 'Toujours envoyer'
+                                                        : step.condition === 'if_not_opened' ? 'Si non ouvert'
+                                                            : step.condition === 'if_opened_no_reply' ? 'Si ouvert sans réponse'
+                                                                : 'Si cliqué sans réponse'}
+                                                </div>
 
-                            <div className="flex items-center gap-3 mb-5">
-                                <div className="w-8 h-8 rounded-[8px] bg-accent-pink/10 text-accent-pink flex items-center justify-center font-bold font-sans text-sm">
-                                    {index + 1}
-                                </div>
-                                <h4 className="font-heading text-lg text-brand-dark mt-0.5">Étape {index + 1}</h4>
-                            </div>
+                                                <div style={{ flex: 1 }}></div>
 
-                            <div className="space-y-5">
-                                <div className="flex items-center gap-3">
-                                    <Clock size={16} className="text-brand-text-secondary" />
-                                    <span className="text-sm font-sans text-brand-text-secondary">Délai après l'étape précédente :</span>
-                                    <input
-                                        type="number"
-                                        min="0"
-                                        value={step.delay_days}
-                                        onChange={e => updateStep(index, 'delay_days', parseInt(e.target.value))}
-                                        className="w-20 p-2 bg-brand-surface border border-brand-border rounded-[6px] text-center focus:outline-none focus:ring-2 focus:ring-accent-pink/20 focus:border-accent-pink transition-all text-brand-text-primary"
-                                    />
-                                    <span className="text-sm font-sans text-brand-text-secondary">jour(s)</span>
-                                </div>
+                                                <button onClick={() => removeStep(index)} style={{ background: 'none', border: 'none', color: '#E11D48', cursor: 'pointer', padding: '4px' }}>
+                                                    <Trash2 size={16} />
+                                                </button>
+                                            </div>
 
-                                <div className="space-y-2">
-                                    <label className="text-sm font-medium font-sans text-brand-text-primary">Objet de l'email</label>
-                                    <input
-                                        type="text"
-                                        value={step.subject}
-                                        onChange={e => updateStep(index, 'subject', e.target.value)}
-                                        className="w-full p-3 bg-brand-surface border border-brand-border rounded-[6px] text-brand-text-primary placeholder-brand-text-secondary/50 focus:outline-none focus:ring-2 focus:ring-accent-pink/20 focus:border-accent-pink transition-all font-sans"
-                                        placeholder="Sujet accrocheur..."
-                                    />
-                                </div>
+                                            {/* Main Setup Row */}
+                                            <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 3fr', gap: '16px' }}>
+                                                {/* Delay Settings */}
+                                                <div style={{ backgroundColor: '#FFF', border: '1px solid #E8E4DF', borderRadius: '6px', padding: '12px' }}>
+                                                    <label style={labelStyle}><Clock size={12} /> Délai après l'étape précédente</label>
+                                                    <div style={{ display: 'flex', gap: '8px' }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                            <input type="number" min="0" value={step.delay_days} onChange={e => updateStep(index, 'delay_days', e.target.value)} style={{ ...inputStyle, width: '60px' }} />
+                                                            <span style={{ fontSize: '12px', color: '#6B6560' }}>j</span>
+                                                        </div>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                            <input type="number" min="0" max="23" value={step.delay_hours} onChange={e => updateStep(index, 'delay_hours', e.target.value)} style={{ ...inputStyle, width: '60px' }} />
+                                                            <span style={{ fontSize: '12px', color: '#6B6560' }}>h</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
 
-                                <div className="space-y-2">
-                                    <label className="text-sm font-medium font-sans text-brand-text-primary">Corps du message</label>
-                                    <p className="text-xs font-sans text-brand-text-secondary mb-2">
-                                        Variables disponibles : <code className="bg-brand-bg px-1.5 py-0.5 rounded-[4px] text-accent-blue font-medium">{"{{first_name}}"}</code>, <code className="bg-brand-bg px-1.5 py-0.5 rounded-[4px] text-accent-blue font-medium">{"{{last_name}}"}</code>
-                                    </p>
-                                    <textarea
-                                        rows="5"
-                                        value={step.body_template}
-                                        onChange={e => updateStep(index, 'body_template', e.target.value)}
-                                        className="w-full p-3 bg-brand-surface border border-brand-border rounded-[6px] text-brand-text-primary placeholder-brand-text-secondary/50 focus:outline-none focus:ring-2 focus:ring-accent-pink/20 focus:border-accent-pink transition-all font-sans resize-y"
-                                        placeholder="Bonjour {{first_name}}, ..."
-                                    ></textarea>
-                                </div>
-                            </div>
+                                                {/* Action Settings */}
+                                                <div style={{ backgroundColor: '#FFF', border: '1px solid #E8E4DF', borderRadius: '6px', padding: '12px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                                    <div>
+                                                        <label style={labelStyle}>Action (Template)</label>
+                                                        <select value={step.template_id} onChange={e => updateStep(index, 'template_id', e.target.value)} style={{ ...inputStyle, width: '100%' }}>
+                                                            {templates.length === 0 && <option value="">Aucun template disponible</option>}
+                                                            {templates.map(t => <option key={t.id} value={t.id}>{t.name} ({t.category})</option>)}
+                                                        </select>
+                                                    </div>
+                                                    <div>
+                                                        <label style={labelStyle}>Condition déclencheur</label>
+                                                        <select value={step.condition} onChange={e => updateStep(index, 'condition', e.target.value)} style={{ ...inputStyle, width: '100%' }}>
+                                                            <option value="always">Toujours envoyer</option>
+                                                            <option value="if_not_opened">Envoyer si email précédent NON ouvert</option>
+                                                            <option value="if_opened_no_reply">Envoyer si email précédent ouvert mais sans réponse</option>
+                                                            <option value="if_clicked_no_reply">Envoyer si email précédent cliqué mais sans réponse</option>
+                                                        </select>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </SortableItem>
+                            ))}
                         </div>
-                    ))}
-                </div>
+                    </SortableContext>
+                </DndContext>
 
-                <button
-                    onClick={addStep}
-                    className="mt-6 w-full py-4 border-[2px] border-dashed border-accent-pink/30 text-accent-pink hover:bg-accent-pink/5 rounded-[10px] font-sans font-medium flex items-center justify-center gap-2 transition-colors active:scale-[0.99]"
-                >
-                    <Plus size={18} />
-                    Ajouter une étape
-                </button>
+                <div style={{ marginTop: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    <button onClick={addStep} style={{
+                        padding: '12px', border: '2px dashed #F5395A', borderRadius: '8px', color: '#F5395A', backgroundColor: 'rgba(245,57,90,0.05)',
+                        fontSize: '14px', fontWeight: 600, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', cursor: 'pointer'
+                    }}>
+                        <Plus size={16} /> Ajouter une étape
+                    </button>
 
-                <div className="mt-8 flex gap-4 pt-6 border-t border-brand-border">
-                    <button
-                        onClick={saveSequence}
-                        className="flex-1 bg-accent-pink hover:bg-accent-pink/90 text-white font-sans font-medium py-3 rounded-[6px] transition-all active:scale-[0.98]"
-                    >
-                        Sauvegarder la séquence
-                    </button>
-                    <button
-                        onClick={() => setShowBuilder(false)}
-                        className="flex-1 bg-brand-bg hover:bg-brand-border/50 text-brand-text-secondary font-sans font-medium py-3 rounded-[6px] transition-colors"
-                    >
-                        Annuler
-                    </button>
+                    <div style={{ display: 'flex', gap: '12px', paddingTop: '16px', borderTop: '1px solid #E8E4DF' }}>
+                        <button onClick={saveSequence} style={saveBtnStyle}>Sauvegarder la séquence</button>
+                        <button onClick={() => setShowBuilder(false)} style={cancelBtnStyle}>Annuler</button>
+                    </div>
                 </div>
             </div>
         )
     }
 
+    // LIST VIEW
     return (
-        <div className="bg-brand-surface rounded-[10px] shadow-sm border border-brand-border p-6 min-h-[400px] animate-fade-in font-sans">
-            <div className="flex justify-between items-center mb-8">
-                <h3 className="text-xl font-heading text-brand-dark">Séquences enregistrées</h3>
-                <button
-                    onClick={() => setShowBuilder(true)}
-                    className="bg-accent-pink hover:bg-accent-pink/90 text-white px-4 py-2 rounded-[6px] text-sm font-sans font-medium transition-all active:scale-[0.98] flex items-center gap-2"
-                >
-                    <Plus size={16} />
-                    Nouvelle séquence
-                </button>
+        <div style={{ fontFamily: 'Poppins, sans-serif' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
+                <div>
+                    <h1 style={{ fontSize: '24px', fontWeight: 600, color: '#2D2830', marginBottom: '8px', letterSpacing: '-0.02em' }}>Séquences</h1>
+                    <p style={{ color: '#6B6560', fontSize: '14px' }}>Configurez vos parcours d'emails automatisés.</p>
+                </div>
+                <button onClick={() => setShowBuilder(true)} style={saveBtnStyle}><Plus size={16} /> Nouvelle Séquence</button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {sequences.length === 0 ? (
-                    <div className="col-span-full py-16 flex flex-col items-center justify-center gap-4 border-[2px] border-dashed border-[#E8E4DF] rounded-[10px] bg-[#F7F5F2]/40">
-                        <div style={{ width: '48px', height: '48px', borderRadius: '12px', backgroundColor: 'rgba(245,57,90,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            <Send size={22} color="#F5395A" />
-                        </div>
-                        <p style={{ fontFamily: 'Poppins, sans-serif', fontSize: '14px', fontStyle: 'italic', color: '#6B6560', margin: 0 }}>
-                            Aucune séquence créée pour le moment.
-                        </p>
-                        <p style={{ fontFamily: 'Poppins, sans-serif', fontSize: '12px', color: '#6B6560', opacity: 0.7, margin: 0 }}>
-                            Créez votre première séquence d'outreach.
-                        </p>
-                    </div>
-                ) : (
-                    sequences.map(seq => (
-                        <div key={seq.id} className="bg-brand-surface border border-brand-border rounded-[10px] p-6 hover:shadow-[0_4px_12px_rgba(0,0,0,0.08)] transition-shadow group flex flex-col">
-                            <h4 className="font-heading text-lg text-brand-dark mb-1 truncate group-hover:text-accent-pink transition-colors" title={seq.name}>{seq.name}</h4>
-                            <p className="text-sm font-sans text-brand-text-secondary mb-5 pb-4 border-b border-brand-border/50">{seq.steps.length} étape(s)</p>
-                            <div className="space-y-4 flex-1">
-                                {seq.steps.map((step, i) => (
-                                    <div key={i} className="flex gap-3 text-sm font-sans">
-                                        <span className="font-medium text-accent-blue mt-0.5">#{i + 1}</span>
-                                        <div className="min-w-0">
-                                            <p className="font-medium text-brand-text-primary truncate" title={step.subject}>{step.subject || '(Sans objet)'}</p>
-                                            <p className="text-xs text-brand-text-secondary mt-0.5">J+{step.delay_days}</p>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '24px' }}>
+                {sequences.map(seq => (
+                    <div key={seq.id} style={{ border: '1px solid #E8E4DF', borderRadius: '12px', padding: '24px', backgroundColor: '#FFFFFF' }}>
+                        <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#2D2830', margin: '0 0 16px 0' }}>{seq.name}</h3>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                            {seq.steps.map((step, i) => {
+                                const tpl = templates.find(t => t.id === step.template_id)
+                                return (
+                                    <div key={i} style={{ display: 'flex', gap: '12px', fontSize: '13px', color: '#6B6560', alignItems: 'flex-start' }}>
+                                        <div style={{ fontWeight: 600, color: '#F5395A', marginTop: '2px' }}>#{i + 1}</div>
+                                        <div>
+                                            <div style={{ fontWeight: 500, color: '#2D2830' }}>{tpl ? tpl.name : 'Template Introuvable'}</div>
+                                            <div style={{ fontSize: '11px', opacity: 0.8 }}>J+{step.delay_days} | {step.condition === 'always' ? 'Toujours' : 'Conditionnel'}</div>
                                         </div>
                                     </div>
-                                ))}
-                            </div>
+                                )
+                            })}
                         </div>
-                    ))
-                )}
+                    </div>
+                ))}
             </div>
         </div>
     )
 }
 
-export default SequencesPage
+const inputStyle = { padding: '8px 12px', borderRadius: '6px', border: '1px solid #E8E4DF', fontSize: '13px', outline: 'none' }
+const labelStyle = { fontSize: '11px', fontWeight: 600, color: '#6B6560', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '4px', textTransform: 'uppercase', letterSpacing: '0.05em' }
+const saveBtnStyle = { padding: '10px 16px', backgroundColor: '#F5395A', color: '#FFF', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }
+const cancelBtnStyle = { ...saveBtnStyle, backgroundColor: '#FFF', color: '#6B6560', border: '1px solid #E8E4DF' }

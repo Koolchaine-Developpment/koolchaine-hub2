@@ -6,7 +6,9 @@ const tabs = [
     { name: 'Vue globale', path: '/prospection', icon: LayoutDashboard },
     { name: 'Sociétés', path: '/prospection/companies', icon: Building2 },
     { name: 'Contacts', path: '/prospection/contacts', icon: Users },
+    { name: 'Campagnes', path: '/prospection/campaigns', icon: Send },
     { name: 'Séquences', path: '/prospection/sequences', icon: Send },
+    { name: 'Templates', path: '/prospection/templates', icon: Send },
 ]
 
 const ProspectionLayout = () => {

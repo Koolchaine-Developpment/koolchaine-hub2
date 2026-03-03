@@ -42,8 +42,10 @@ class ContactOut(ContactBase):
 
 class SequenceStep(BaseModel):
     delay_days: int
-    subject: str
-    body_template: str
+    delay_hours: int = 0
+    template_id: int
+    condition: str = "always"  # ["always", "if_not_opened", "if_opened_no_reply", "if_clicked_no_reply"]
+    stop_on_reply: bool = True
 
 class EmailSequenceCreate(BaseModel):
     name: str
@@ -54,6 +56,20 @@ class EmailSequenceOut(BaseModel):
     name: str
     steps: List[SequenceStep]
     created_at: datetime
+    
+class EmailTemplateCreate(BaseModel):
+    name: str
+    category: str
+    subject: str
+    html_content: str
+    placeholders: List[str] = []
+    has_signature: bool = False
+    signature_html: Optional[str] = None
+
+class EmailTemplateOut(EmailTemplateCreate):
+    id: int
+    created_at: datetime
+    updated_at: datetime
 
     class Config:
         from_attributes = True

@@ -6,4 +6,5 @@ from app.models.sequence import EmailSequence
 from app.models.email_log import EmailLog
 from app.models.shopify_order import Order
 from app.models.stock_alert import StockAlert
+from app.models.campaign import Campaign
 

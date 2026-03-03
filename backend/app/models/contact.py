@@ -15,6 +15,7 @@ class Contact(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     company_id = Column(Integer, ForeignKey("companies.id"), nullable=False)
+    campaign_id = Column(Integer, ForeignKey("campaigns.id"), nullable=True)
     first_name = Column(String, nullable=False)
     last_name = Column(String, nullable=False)
     email = Column(String, unique=True, index=True)
@@ -23,4 +24,5 @@ class Contact(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     company = relationship("Company", back_populates="contacts")
+    campaign = relationship("Campaign", back_populates="contacts")
     email_logs = relationship("EmailLog", back_populates="contact", cascade="all, delete-orphan")

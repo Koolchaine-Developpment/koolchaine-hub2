@@ -49,11 +49,13 @@ app.add_middleware(
 from app.api import prospection
 from app.api import shopify
 from app.api import analytics
+from app.api import tracking
 
 app.include_router(auth.router, prefix=f"{settings.API_V1_STR}/auth", tags=["auth"])
 app.include_router(prospection.router, prefix=f"{settings.API_V1_STR}/prospection", tags=["prospection"])
 app.include_router(shopify.router, prefix=f"{settings.API_V1_STR}/shopify", tags=["shopify"])
 app.include_router(analytics.router, prefix=f"{settings.API_V1_STR}/analytics", tags=["analytics"])
+app.include_router(tracking.router, prefix="/track", tags=["tracking"])
 
 @app.get("/health")
 def health_check():
