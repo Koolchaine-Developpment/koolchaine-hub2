@@ -4,7 +4,7 @@ from fastapi.responses import JSONResponse
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
-from app.api import auth
+from app.api import auth_google
 from app.core.config import settings
 from app.db.session import engine, Base
 
@@ -43,18 +43,22 @@ app.add_middleware(
     allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allow_headers=["Authorization", "Content-Type", "Accept", "X-Requested-With"],
+    allow_headers=["*"],
 )
 
 from app.api import prospection
 from app.api import shopify
 from app.api import analytics
 from app.api import tracking
+from app.api import social
+from app.api import simulateur
 
-app.include_router(auth.router, prefix=f"{settings.API_V1_STR}/auth", tags=["auth"])
+app.include_router(auth_google.router, prefix=f"{settings.API_V1_STR}/auth", tags=["auth"])
 app.include_router(prospection.router, prefix=f"{settings.API_V1_STR}/prospection", tags=["prospection"])
 app.include_router(shopify.router, prefix=f"{settings.API_V1_STR}/shopify", tags=["shopify"])
 app.include_router(analytics.router, prefix=f"{settings.API_V1_STR}/analytics", tags=["analytics"])
+app.include_router(social.router, prefix=f"{settings.API_V1_STR}/social", tags=["social"])
+app.include_router(simulateur.router, prefix=f"{settings.API_V1_STR}/simulateur", tags=["simulateur"])
 app.include_router(tracking.router, prefix="/track", tags=["tracking"])
 
 @app.get("/health")

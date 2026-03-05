@@ -1,16 +1,17 @@
 import React, { useEffect, useState } from 'react'
 import axios from 'axios'
-import { Users, UserCheck, MessageCircleReply, Target } from 'lucide-react'
+import { Users, UserCheck, MessageCircleReply, Target, Zap, Clock, CheckCircle, AlertCircle, Play } from 'lucide-react'
+import { apiFetch } from '../../lib/api'
 
-const StatCard = ({ title, value, icon: Icon, accentClass }) => (
-    <div className={`bg-brand-surface p-6 rounded-[10px] border border-brand-border border-t-4 ${accentClass} shadow-sm hover:shadow-[0_4px_12px_rgba(0,0,0,0.08)] transition-shadow duration-200 flex items-start justify-between`}>
-        <div>
-            <p className="text-sm font-sans font-medium text-brand-text-secondary">{title}</p>
-            <h3 className="text-[32px] font-heading text-brand-text-primary leading-none mt-3">{value}</h3>
+const StatCard = ({ title, value, icon: Icon, cardClass = "card", meta }) => (
+    <div className={`card ${cardClass}`}>
+        <div className="card-label flex items-center justify-between">
+            <span>{title}</span>
+            <Icon size={16} style={{ opacity: 0.6 }} />
         </div>
-        <div className="p-3 rounded-lg bg-brand-bg text-brand-text-secondary">
-            <Icon size={24} />
-        </div>
+        <div className="card-value">{value}</div>
+        <div className="card-meta">{meta || 'Metric tracking'}</div>
+        <div className="card-deco"></div>
     </div>
 )
 
@@ -19,48 +20,168 @@ const Dashboard = () => {
         total_prospects: 0,
         contacted: 0,
         replied: 0,
-        conversion_rate: 0
+        a_valider: 0,
+        conversion_rate: 0,
+        last_job: null,
     })
+    const [launching, setLaunching] = useState(false)
 
-    useEffect(() => {
-        axios.get('/api/v1/prospection/stats', { withCredentials: true })
+    const fetchStats = () => {
+        axios.get('/api/v1/prospection/stats')
             .then(res => setStats(res.data))
             .catch(err => console.error(err))
+    }
+
+    useEffect(() => {
+        fetchStats()
+        const interval = setInterval(fetchStats, 10000)
+        return () => clearInterval(interval)
     }, [])
 
+    const launchPipeline = async () => {
+        setLaunching(true)
+        try {
+            await apiFetch('/api/v1/prospection/jobs/run', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    secteurs: ['evenementiel', 'mode', 'com', 'hotel', 'ehpad'],
+                    effectifs_min: 200,
+                }),
+            })
+            // Refresh stats after launch
+            setTimeout(fetchStats, 2000)
+        } catch (err) {
+            console.error(err)
+        } finally {
+            setLaunching(false)
+        }
+    }
+
+    const lastJob = stats.last_job
+
+    const getJobStatusBadge = (status) => {
+        switch (status) {
+            case 'done': return <span className="badge badge-green"><CheckCircle size={12} /> Terminé</span>
+            case 'running': return <span className="badge badge-pink"><Clock size={12} className="animate-pulse" /> En cours</span>
+            case 'error': return <span className="badge badge-yellow"><AlertCircle size={12} /> Erreur</span>
+            default: return <span className="badge badge-dark"><Clock size={12} /> En attente</span>
+        }
+    }
+
     return (
-        <div className="space-y-8 animate-fade-in">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="animate-fade-in pb-8 space-y-6">
+            {/* KPI Bento */}
+            <div className="bento">
                 <StatCard
                     title="Total Prospects"
                     value={stats.total_prospects}
                     icon={Users}
-                    accentClass="border-t-brand-dark"
+                    cardClass="card-dark"
+                    meta={`${stats.a_valider} en attente de validation`}
                 />
                 <StatCard
                     title="Contactés"
                     value={stats.contacted}
                     icon={UserCheck}
-                    accentClass="border-t-accent-blue"
+                    cardClass="card-pink"
+                    meta="Emails envoyés"
                 />
                 <StatCard
                     title="Réponses"
                     value={stats.replied}
                     icon={MessageCircleReply}
-                    accentClass="border-t-accent-green"
+                    cardClass="card-green"
+                    meta={`Taux : ${stats.conversion_rate}%`}
                 />
                 <StatCard
                     title="Taux de Conversion"
                     value={`${stats.conversion_rate}%`}
                     icon={Target}
-                    accentClass="border-t-accent-yellow"
+                    cardClass="card"
+                    meta="Réponses / contactés"
                 />
             </div>
 
-            {/* Placeholder for future charts or recent activity */}
-            <div className="bg-brand-surface p-12 rounded-[10px] border border-brand-border flex flex-col items-center justify-center gap-3">
-                <Target size={24} className="text-accent-pink opacity-80" />
-                <p className="text-brand-text-secondary italic font-sans text-sm">Flux d'activité récent (à venir)</p>
+            {/* Validation bandeau */}
+            {stats.a_valider > 0 && (
+                <div style={{
+                    background: 'linear-gradient(135deg, rgba(255,184,0,0.12), rgba(255,184,0,0.05))',
+                    border: '1px solid rgba(255,184,0,0.3)',
+                    padding: '16px 24px',
+                    borderRadius: '12px',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <Zap size={20} style={{ color: 'var(--pink)' }} />
+                        <span style={{ fontWeight: 600, fontSize: '14px', color: 'var(--dark)' }}>
+                            {stats.a_valider} contacts en attente de validation
+                        </span>
+                    </div>
+                    <a href="/prospection/contacts?status=a_valider" className="btn btn-pink" style={{ fontSize: '13px' }}>
+                        Valider maintenant →
+                    </a>
+                </div>
+            )}
+
+            {/* Dernier Job + Lancer */}
+            <div className="card">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                    <div className="section-title" style={{ margin: 0 }}>Pipeline de scraping</div>
+                    <button
+                        onClick={launchPipeline}
+                        disabled={launching || (lastJob && lastJob.status === 'running')}
+                        className="btn btn-pink"
+                        style={{ fontSize: '13px' }}
+                    >
+                        <Play size={14} />
+                        {launching ? 'Lancement...' : 'Lancer maintenant'}
+                    </button>
+                </div>
+
+                {lastJob ? (
+                    <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', alignItems: 'center' }}>
+                        <div>
+                            {getJobStatusBadge(lastJob.status)}
+                        </div>
+                        <div style={{ fontSize: '13px', color: 'var(--gray)' }}>
+                            {lastJob.finished_at ? (
+                                `Terminé le ${new Date(lastJob.finished_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}`
+                            ) : lastJob.started_at ? (
+                                `Démarré le ${new Date(lastJob.started_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}`
+                            ) : (
+                                'En attente'
+                            )}
+                        </div>
+                        <div style={{ display: 'flex', gap: '16px' }}>
+                            <div style={{ textAlign: 'center' }}>
+                                <div style={{ fontSize: '20px', fontWeight: 700, fontFamily: '"Archivo Black", sans-serif', color: 'var(--dark)' }}>
+                                    {lastJob.nb_societes_trouvees}
+                                </div>
+                                <div style={{ fontSize: '11px', color: 'var(--gray)', fontWeight: 600, textTransform: 'uppercase' }}>Sociétés</div>
+                            </div>
+                            <div style={{ textAlign: 'center' }}>
+                                <div style={{ fontSize: '20px', fontWeight: 700, fontFamily: '"Archivo Black", sans-serif', color: 'var(--pink)' }}>
+                                    {lastJob.nb_contacts_enrichis}
+                                </div>
+                                <div style={{ fontSize: '11px', color: 'var(--gray)', fontWeight: 600, textTransform: 'uppercase' }}>Contacts</div>
+                            </div>
+                            <div style={{ textAlign: 'center' }}>
+                                <div style={{ fontSize: '20px', fontWeight: 700, fontFamily: '"Archivo Black", sans-serif', color: 'var(--green)' }}>
+                                    {lastJob.nb_emails_generes}
+                                </div>
+                                <div style={{ fontSize: '11px', color: 'var(--gray)', fontWeight: 600, textTransform: 'uppercase' }}>Emails</div>
+                            </div>
+                        </div>
+                    </div>
+                ) : (
+                    <div style={{ fontSize: '13px', color: 'var(--gray)', fontStyle: 'italic', textAlign: 'center', padding: '24px 0' }}>
+                        <Zap size={24} style={{ color: 'var(--border)', marginBottom: '8px' }} />
+                        <p>Aucun scraping lancé. Cliquez sur "Lancer maintenant" pour démarrer le pipeline.</p>
+                    </div>
+                )}
             </div>
         </div>
     )

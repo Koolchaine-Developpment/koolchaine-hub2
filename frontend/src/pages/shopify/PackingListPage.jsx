@@ -9,8 +9,7 @@ const PackingListPage = () => {
         setIsGenerating(true)
         try {
             const res = await axios.get('/api/v1/shopify/orders/packing-list', {
-                responseType: 'blob',
-                withCredentials: true
+                responseType: 'blob'
             })
 
             const url = window.URL.createObjectURL(new Blob([res.data]))

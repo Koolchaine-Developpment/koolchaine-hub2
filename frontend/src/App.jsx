@@ -3,7 +3,6 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import DashboardLayout from './layout/DashboardLayout'
 import LoginPage from './pages/LoginPage'
-import RegisterPage from './pages/RegisterPage'
 import ProspectionLayout from './layout/ProspectionLayout'
 import Dashboard from './pages/prospection/Dashboard'
 import CompaniesPage from './pages/prospection/CompaniesPage'
@@ -16,9 +15,15 @@ import ShopifyDashboard from './pages/shopify/Dashboard'
 import OrdersPage from './pages/shopify/OrdersPage'
 import PackingListPage from './pages/shopify/PackingListPage'
 import StockPage from './pages/shopify/StockPage'
-import SocialPage from './pages/SocialPage'
+
 import AnalyticsPage from './pages/AnalyticsPage'
 import SimulateurPage from './pages/SimulateurPage'
+import DashboardPage from './pages/DashboardPage'
+
+import SocialLayout from './layout/SocialLayout'
+import SandboxPage from './pages/social/SandboxPage'
+import ToneOfVoicePage from './pages/settings/ToneOfVoicePage'
+import LoginCallbackPage from './pages/LoginCallbackPage'
 
 const ProtectedRoute = ({ children }) => {
     const { user, loading } = useAuth()
@@ -70,10 +75,10 @@ function App() {
         <AuthProvider>
             <Routes>
                 <Route path="/login" element={<LoginPage />} />
-                <Route path="/register" element={<RegisterPage />} />
+                <Route path="/login/callback" element={<LoginCallbackPage />} />
 
-                <Route path="/" element={<DashboardLayout />}>
-                    <Route index element={<Navigate to="/prospection" />} />
+                <Route path="/" element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
+                    <Route index element={<DashboardPage />} />
 
                     <Route path="prospection" element={<ProspectionLayout />}>
                         <Route index element={<Dashboard />} />
@@ -91,9 +96,16 @@ function App() {
                         <Route path="stock" element={<StockPage />} />
                     </Route>
 
-                    <Route path="social" element={<SocialPage />} />
+
                     <Route path="analytics" element={<AnalyticsPage />} />
                     <Route path="simulateur" element={<SimulateurPage />} />
+
+                    <Route path="social" element={<SocialLayout />}>
+                        <Route index element={<Navigate to="/social/sandbox" replace />} />
+                        <Route path="sandbox" element={<SandboxPage />} />
+                    </Route>
+
+                    <Route path="settings/agents/social" element={<ToneOfVoicePage />} />
                 </Route>
             </Routes>
         </AuthProvider>

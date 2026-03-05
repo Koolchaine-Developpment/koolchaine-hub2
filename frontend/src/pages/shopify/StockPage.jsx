@@ -10,7 +10,7 @@ const StockPage = () => {
     useEffect(() => {
         const fetchStock = async () => {
             try {
-                const res = await axios.get('/api/v1/shopify/stock', { withCredentials: true })
+                const res = await axios.get('/api/v1/shopify/stock')
                 setStock(res.data)
             } catch (err) {
                 console.error(err)
@@ -22,43 +22,43 @@ const StockPage = () => {
     }, [])
 
     const getStockStatus = (current, threshold) => {
-        if (current <= 0) return { label: 'Épuisé', color: 'bg-brand-bg text-brand-text-secondary border-brand-border' }
-        if (current <= threshold) return { label: 'Critique', color: 'bg-accent-pink/10 text-accent-pink border-accent-pink/20' }
-        return { label: 'En stock', color: 'bg-accent-green/10 text-accent-green border-accent-green/20' }
+        if (current <= 0) return { label: 'Épuisé', color: 'badge badge-dark' }
+        if (current <= threshold) return { label: 'Critique', color: 'badge badge-pink' }
+        return { label: 'En stock', color: 'badge badge-green' }
     }
 
     return (
-        <div className="bg-brand-surface rounded-[10px] shadow-sm border border-brand-border overflow-hidden flex flex-col h-full animate-fade-in font-sans">
-            <div className="p-6 border-b border-brand-border flex justify-between items-center">
+        <div className="space-y-6 animate-fade-in">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                 <div>
-                    <h3 className="text-lg font-heading text-brand-dark flex items-center gap-2">
+                    <h3 className="page-title">
                         Gestion des Stocks
                     </h3>
-                    <p className="text-sm font-sans text-brand-text-secondary mt-1">Définissez des seuils d'alerte pour recevoir des notifications.</p>
+                    <p className="page-subtitle">Définissez des seuils d'alerte pour recevoir des notifications.</p>
                 </div>
             </div>
 
-            <div className="overflow-x-auto flex-1 bg-brand-surface">
-                <table className="w-full text-sm text-left font-sans">
-                    <thead className="bg-brand-bg text-brand-text-secondary font-medium border-b border-brand-border">
+            <div className="card" style={{ padding: 0 }}>
+                <table>
+                    <thead>
                         <tr>
-                            <th className="px-6 py-4">Produit</th>
-                            <th className="px-6 py-4 text-center">SKU</th>
-                            <th className="px-6 py-4 text-center">Stock Actuel</th>
-                            <th className="px-6 py-4 text-center">Seuil d'Alerte</th>
-                            <th className="px-6 py-4 text-center">État</th>
+                            <th>Produit</th>
+                            <th style={{ textAlign: 'center' }}>SKU</th>
+                            <th style={{ textAlign: 'center' }}>Stock Actuel</th>
+                            <th style={{ textAlign: 'center' }}>Seuil d'Alerte</th>
+                            <th style={{ textAlign: 'center' }}>État</th>
                         </tr>
                     </thead>
-                    <tbody className="divide-y divide-brand-border">
+                    <tbody>
                         {loading ? (
                             <tr>
-                                <td colSpan="5" className="px-6 py-12 text-center text-brand-text-secondary font-sans italic">Chargement des données...</td>
+                                <td colSpan="5" style={{ textAlign: 'center', color: 'var(--gray)', fontStyle: 'italic', padding: '48px 0' }}>Chargement des données...</td>
                             </tr>
                         ) : stock.length === 0 ? (
                             <tr>
-                                <td colSpan="5" className="px-6 py-12 text-center text-brand-text-secondary font-sans italic">
+                                <td colSpan="5" style={{ textAlign: 'center', color: 'var(--gray)', fontStyle: 'italic', padding: '48px 0' }}>
                                     <div className="flex flex-col items-center">
-                                        <TrendingDown className="text-brand-border mb-3" size={32} />
+                                        <TrendingDown style={{ color: 'var(--gray)', marginBottom: '12px', opacity: 0.5 }} size={32} />
                                         <p>Aucune donnée de stock trouvée. Le cron de synchronisation n'a peut-être pas encore tourné.</p>
                                     </div>
                                 </td>
@@ -67,28 +67,28 @@ const StockPage = () => {
                             stock.map(item => {
                                 const status = getStockStatus(item.current_stock, item.threshold)
                                 return (
-                                    <tr key={item.id} className="hover:bg-brand-bg transition-colors">
-                                        <td className="px-6 py-4 font-medium font-sans text-brand-text-primary">
+                                    <tr key={item.id}>
+                                        <td style={{ fontWeight: 500, color: 'var(--dark)' }}>
                                             {item.product_name}
                                         </td>
-                                        <td className="px-6 py-4 text-center text-brand-text-secondary font-sans text-xs">
+                                        <td style={{ textAlign: 'center', fontSize: '12px', color: 'var(--gray)' }}>
                                             {item.product_id}
                                         </td>
-                                        <td className="px-6 py-4 text-center">
-                                            <span className={`text-lg font-heading ${item.current_stock <= item.threshold ? 'text-accent-pink' : 'text-brand-text-primary'}`}>
+                                        <td style={{ textAlign: 'center' }}>
+                                            <span style={{ fontSize: '18px', fontWeight: 600, color: item.current_stock <= item.threshold ? 'var(--pink)' : 'var(--dark)', fontFamily: '"Archivo Black", sans-serif' }}>
                                                 {item.current_stock}
                                             </span>
                                         </td>
-                                        <td className="px-6 py-4 text-center">
+                                        <td style={{ textAlign: 'center' }}>
                                             <input
                                                 type="number"
                                                 defaultValue={item.threshold}
-                                                className="w-20 text-center border-brand-border rounded-[6px] text-sm bg-brand-surface text-brand-text-primary focus:outline-none focus:ring-2 focus:ring-accent-pink/20 focus:border-accent-pink transition-all font-sans"
+                                                style={{ width: '80px', textAlign: 'center', padding: '6px' }}
                                                 title="Modifications statiques - Démo"
                                             />
                                         </td>
-                                        <td className="px-6 py-4 text-center">
-                                            <span className={`px-2.5 py-1 text-xs font-sans font-semibold rounded-full border flex items-center gap-1.5 justify-center w-max mx-auto ${status.color}`}>
+                                        <td style={{ textAlign: 'center' }}>
+                                            <span className={status.color} style={{ margin: '0 auto' }}>
                                                 {item.current_stock <= item.threshold && <AlertTriangle size={12} />}
                                                 {status.label}
                                             </span>

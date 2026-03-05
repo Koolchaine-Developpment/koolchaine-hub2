@@ -3,9 +3,9 @@ import axios from 'axios'
 import { Download, RefreshCw, Printer, AlertCircle } from 'lucide-react'
 
 const statusColors = {
-    unfulfilled: 'bg-accent-yellow/10 text-accent-yellow border-accent-yellow/20',
-    fulfilled: 'bg-accent-green/10 text-accent-green border-accent-green/20',
-    cancelled: 'bg-brand-bg text-brand-text-secondary border-brand-border'
+    unfulfilled: 'badge badge-yellow',
+    fulfilled: 'badge badge-green',
+    cancelled: 'badge badge-dark'
 }
 
 const statusLabels = {
@@ -21,7 +21,7 @@ const OrdersPage = () => {
 
     const fetchOrders = async () => {
         try {
-            const res = await axios.get('/api/v1/shopify/orders?status=any', { withCredentials: true })
+            const res = await axios.get('/api/v1/shopify/orders?status=any')
             setOrders(res.data)
         } catch (err) {
             console.error(err)
@@ -35,7 +35,7 @@ const OrdersPage = () => {
     const handleSync = async () => {
         setIsSyncing(true)
         try {
-            await axios.post('/api/v1/shopify/orders/sync', {}, { withCredentials: true })
+            await axios.post('/api/v1/shopify/orders/sync', {})
             await fetchOrders()
         } catch (err) {
             alert("Erreur lors de la synchronisation.")
@@ -47,7 +47,7 @@ const OrdersPage = () => {
     const generateLabel = async (orderId) => {
         setGeneratingLabelId(orderId)
         try {
-            const res = await axios.post(`/api/v1/shopify/orders/${orderId}/label`, {}, { withCredentials: true })
+            const res = await axios.post(`/api/v1/shopify/orders/${orderId}/label`, {})
             if (res.data.status === 'pending') {
                 alert("Génération d'étiquette lancée en arrière-plan. Veuillez rafraîchir la page dans quelques instants.")
             } else if (res.data.url) {
@@ -63,16 +63,16 @@ const OrdersPage = () => {
     }
 
     return (
-        <div className="bg-brand-surface rounded-[10px] shadow-sm border border-brand-border overflow-hidden flex flex-col h-full animate-fade-in font-sans">
-            <div className="p-6 border-b border-brand-border flex justify-between items-center">
-                <h3 className="text-lg font-heading text-brand-dark flex items-center gap-2">
+        <div className="space-y-6 animate-fade-in">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                <h3 className="page-title">
                     Gérer les Commandes
                 </h3>
                 <div className="flex gap-3">
                     <button
                         onClick={handleSync}
                         disabled={isSyncing}
-                        className="bg-brand-surface border border-brand-border hover:bg-brand-bg text-brand-text-secondary px-4 py-2 rounded-[6px] text-sm font-sans font-medium transition-colors flex items-center gap-2 disabled:opacity-50"
+                        className="btn btn-ghost disabled:opacity-50"
                     >
                         <RefreshCw size={16} className={isSyncing ? "animate-spin" : ""} />
                         {isSyncing ? "Synchronisation..." : "Synchroniser Shopify"}
@@ -80,60 +80,61 @@ const OrdersPage = () => {
                 </div>
             </div>
 
-            <div className="overflow-x-auto flex-1 bg-brand-surface">
-                <table className="w-full text-sm text-left font-sans">
-                    <thead className="bg-brand-bg text-brand-text-secondary font-medium border-b border-brand-border">
+            <div className="card" style={{ padding: 0 }}>
+                <table>
+                    <thead>
                         <tr>
-                            <th className="px-6 py-4">Commande</th>
-                            <th className="px-6 py-4">Client</th>
-                            <th className="px-6 py-4">Articles</th>
-                            <th className="px-6 py-4 text-center">Montant</th>
-                            <th className="px-6 py-4 text-center">Statut</th>
-                            <th className="px-6 py-4 text-center">Action</th>
+                            <th>Commande</th>
+                            <th>Client</th>
+                            <th>Articles</th>
+                            <th style={{ textAlign: 'center' }}>Montant</th>
+                            <th style={{ textAlign: 'center' }}>Statut</th>
+                            <th style={{ textAlign: 'center' }}>Action</th>
                         </tr>
                     </thead>
-                    <tbody className="divide-y divide-brand-border">
+                    <tbody>
                         {orders.length === 0 ? (
                             <tr>
-                                <td colSpan="6" className="px-6 py-12 text-center text-brand-text-secondary italic font-sans">
+                                <td colSpan="6" style={{ textAlign: 'center', color: 'var(--gray)', fontStyle: 'italic', padding: '48px 0' }}>
                                     Aucune commande trouvée. Tentez une synchronisation.
                                 </td>
                             </tr>
                         ) : (
                             orders.map(order => (
-                                <tr key={order.id} className="hover:bg-brand-bg transition-colors">
-                                    <td className="px-6 py-4">
-                                        <div className="font-heading text-[15px] text-brand-text-primary">
+                                <tr key={order.id}>
+                                    <td>
+                                        <div style={{ fontWeight: 600, color: 'var(--dark)' }}>
                                             {order.order_number}
                                         </div>
-                                        <div className="text-xs font-sans text-brand-text-secondary mt-1">
+                                        <div style={{ fontSize: '11px', color: 'var(--gray)', marginTop: '4px' }}>
                                             {new Date(order.created_at).toLocaleDateString()}
                                         </div>
                                     </td>
-                                    <td className="px-6 py-4">
-                                        <div className="font-medium font-sans text-brand-text-primary">{order.customer_name}</div>
-                                        <div className="text-xs font-sans text-brand-text-secondary">{order.shipping_address?.city || 'Pas de ville'}</div>
+                                    <td>
+                                        <div style={{ fontWeight: 500, color: 'var(--dark)' }}>{order.customer_name}</div>
+                                        <div style={{ fontSize: '11px', color: 'var(--gray)', marginTop: '4px' }}>{order.shipping_address?.city || 'Pas de ville'}</div>
                                     </td>
-                                    <td className="px-6 py-4 max-w-[200px]">
-                                        <div className="text-brand-text-secondary font-sans truncate" title={order.items.map(i => `${i.quantity}x ${i.name}`).join(', ')}>
+                                    <td style={{ maxWidth: '200px' }}>
+                                        <div style={{ color: 'var(--gray)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={order.items.map(i => `${i.quantity}x ${i.name}`).join(', ')}>
                                             {order.items.length} article(s) : {order.items[0]?.name} {order.items.length > 1 ? '...' : ''}
                                         </div>
                                     </td>
-                                    <td className="px-6 py-4 text-center font-medium font-sans text-brand-text-primary">
+                                    <td style={{ textAlign: 'center', fontWeight: 600, color: 'var(--dark)' }}>
                                         €{order.total_price.toFixed(2)}
                                     </td>
-                                    <td className="px-6 py-4 text-center">
-                                        <span className={`px-2.5 py-1 text-xs font-sans font-semibold rounded-full border ${statusColors[order.status] || statusColors.cancelled}`}>
+                                    <td style={{ textAlign: 'center' }}>
+                                        <span className={statusColors[order.status] || statusColors.cancelled}>
                                             {statusLabels[order.status] || order.status}
                                         </span>
                                     </td>
-                                    <td className="px-6 py-4 text-center">
+                                    <td style={{ textAlign: 'center' }}>
                                         {order.label_url ? (
                                             <a
                                                 href={order.label_url}
                                                 target="_blank"
                                                 rel="noreferrer"
-                                                className="inline-flex items-center gap-1.5 text-xs font-sans font-medium text-accent-pink bg-accent-pink/10 px-3 py-1.5 rounded-[6px] border border-accent-pink/20 hover:bg-accent-pink/20 transition-colors"
+                                                className="btn btn-pink"
+                                                style={{ padding: '8px 12px', fontSize: '11px', gap: '6px' }}
                                             >
                                                 <Printer size={14} /> Imprimer Colissimo
                                             </a>
@@ -141,10 +142,11 @@ const OrdersPage = () => {
                                             <button
                                                 onClick={() => generateLabel(order.id)}
                                                 disabled={generatingLabelId === order.id || order.status === 'cancelled'}
-                                                className="inline-flex items-center gap-1.5 text-xs font-sans font-medium text-brand-text-secondary bg-brand-surface px-3 py-1.5 rounded-[6px] border border-brand-border hover:bg-brand-bg hover:text-brand-dark transition-colors disabled:opacity-50"
+                                                className="btn btn-ghost disabled:opacity-50"
+                                                style={{ padding: '8px 12px', fontSize: '11px', gap: '6px' }}
                                             >
                                                 {generatingLabelId === order.id ? (
-                                                    <><RefreshCw size={14} className="animate-spin text-accent-pink" /> Génération...</>
+                                                    <><RefreshCw size={14} style={{ color: 'var(--pink)' }} className="animate-spin" /> Génération...</>
                                                 ) : (
                                                     <><Download size={14} /> Créer Étiquette</>
                                                 )}
