@@ -3,7 +3,7 @@ import React from 'react'
 const LoginPage = () => {
     const handleGoogleLogin = () => {
         // Redirige vers le backend qui va déclencher le flow OAuth de Google
-        window.location.href = 'http://localhost/api/v1/auth/google/login'
+        window.location.href = '/api/v1/auth/google/login'
     }
 
     return (
