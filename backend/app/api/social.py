@@ -98,9 +98,9 @@ async def generate_caption(
         system_prompt = await brain.build_system_prompt(context)
 
         # Appel Claude vision — analyse + tags + caption en un seul appel
-        print(f"[SOCIAL] Calling Claude vision with model: claude-3-5-sonnet-latest")
+        print(f"[SOCIAL] Calling Claude vision with model: claude-sonnet-4-5")
         response = await anthropic_client.messages.create(
-            model="claude-3-5-sonnet-latest",
+            model="claude-sonnet-4-5",
             max_tokens=1500,
             system=system_prompt,
             messages=[{
@@ -253,7 +253,7 @@ ANALYSE VISUELLE DE L'IMAGE :
     """.strip()
 
     response = await anthropic_client.messages.create(
-        model="claude-3-5-sonnet-latest",
+        model="claude-sonnet-4-5",
         max_tokens=500,
         system=system_prompt,
         messages=[{
