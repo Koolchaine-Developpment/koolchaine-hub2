@@ -1,21 +1,50 @@
+from fastapi import Depends, HTTPException, status
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from jose import jwt, JWTError
 from sqlalchemy.orm import Session
-from fastapi import Depends
+from app.core.config import settings
 from app.db.session import get_db
 from app.models.user import User
 
-def get_current_user(db: Session = Depends(get_db)) -> User:
+security = HTTPBearer()
+
+def get_current_user(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: Session = Depends(get_db)
+) -> User:
     """
-    AUTH DISABLED TEMPORARILY — returns first user in DB.
-    TODO: re-enable OAuth once configured in prod.
+    Validates the Bearer token from the Authorization header.
+    Used across all protected endpoints in Koolchaine Hub.
     """
-    user = db.query(User).first()
-    if not user:
-        user = User(
-            email="admin@koolchaine.fr",
-            full_name="Admin",
-            is_active=True,
+    token = credentials.credentials
+
+    try:
+        payload = jwt.decode(
+            token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
         )
-        db.add(user)
-        db.commit()
-        db.refresh(user)
+        token_data = payload.get("sub")
+        if token_data is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Could not validate credentials",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+    except JWTError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    user = db.query(User).filter(User.email == token_data).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Inactive user"
+        )
     return user
