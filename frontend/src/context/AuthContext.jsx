@@ -1,35 +1,53 @@
 import React, { createContext, useContext, useState, useEffect } from 'react'
 import authService from '../services/authService'
+import { getToken, removeToken } from '../lib/auth'
 
 const AuthContext = createContext()
 
 export const AuthProvider = ({ children }) => {
-    const [user, setUser] = useState({ full_name: 'Admin (Bypass)', role: 'admin', email: 'admin@koolchaine.com' })
-    const [loading, setLoading] = useState(false)
+    const [user, setUser] = useState(null)
+    const [loading, setLoading] = useState(true)
 
     useEffect(() => {
-        // TEMPORARY BYPASS: Auto-login
-        setLoading(false)
+        const checkUser = async () => {
+            const token = getToken()
+            if (!token) {
+                setLoading(false)
+                return
+            }
+
+            try {
+                const userData = await authService.getMe()
+                setUser(userData)
+            } catch (error) {
+                console.error("Auth check failed", error)
+                removeToken()
+                setUser(null)
+            } finally {
+                setLoading(false)
+            }
+        }
+        checkUser()
     }, [])
 
-    const login = async (credentials) => {
-        await authService.login(credentials)
-        const userData = await authService.getMe()
-        setUser(userData)
-    }
-
-    const register = async (userData) => {
-        await authService.register(userData)
-        // Optional: auto-login after register
+    const login = () => {
+        window.location.href = '/api/v1/auth/google/login'
     }
 
     const logout = async () => {
-        await authService.logout()
-        setUser(null)
+        try {
+            await authService.logout()
+        } catch (error) {
+            console.error("Failed to logout on server", error)
+        } finally {
+            removeToken()
+            setUser(null)
+            window.location.href = '/login'
+        }
     }
 
     return (
-        <AuthContext.Provider value={{ user, loading, login, register, logout }}>
+        <AuthContext.Provider value={{ user, loading, login, logout }}>
             {children}
         </AuthContext.Provider>
     )

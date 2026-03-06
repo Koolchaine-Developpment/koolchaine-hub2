@@ -13,37 +13,15 @@ const tabs = [
 
 const ProspectionLayout = () => {
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', height: '100%', gap: 0 }}>
-
+        <div className="flex flex-col h-full">
             {/* Tab bar */}
-            <div style={{
-                display: 'flex',
-                gap: 0,
-                borderBottom: '1px solid #E8E4DF',
-                backgroundColor: '#FFFFFF',
-                borderRadius: '10px 10px 0 0',
-                padding: '0 4px',
-                flexShrink: 0,
-            }}>
+            <div className="sub-nav" style={{ margin: '-32px -32px 32px -32px' }}>
                 {tabs.map((tab) => (
                     <NavLink
                         key={tab.name}
                         to={tab.path}
                         end={tab.path === '/prospection'}
-                        style={({ isActive }) => ({
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '7px',
-                            padding: '14px 18px',
-                            fontSize: '13px',
-                            fontFamily: 'Poppins, sans-serif',
-                            fontWeight: 500,
-                            color: isActive ? '#F5395A' : '#6B6560',
-                            borderBottom: isActive ? '3px solid #F5395A' : '3px solid transparent',
-                            textDecoration: 'none',
-                            transition: 'all 0.15s ease',
-                            whiteSpace: 'nowrap',
-                        })}
+                        className={({ isActive }) => isActive ? 'sub-nav-item active flex items-center gap-2' : 'sub-nav-item flex items-center gap-2'}
                     >
                         <tab.icon size={15} />
                         {tab.name}
@@ -51,17 +29,8 @@ const ProspectionLayout = () => {
                 ))}
             </div>
 
-            {/* Content card */}
-            <div style={{
-                flex: 1,
-                overflowY: 'auto',
-                backgroundColor: '#FFFFFF',
-                borderRadius: '0 0 10px 10px',
-                borderLeft: '1px solid #E8E4DF',
-                borderRight: '1px solid #E8E4DF',
-                borderBottom: '1px solid #E8E4DF',
-                padding: '28px',
-            }}>
+            {/* Content area */}
+            <div className="flex-1 animate-fade-in">
                 <Outlet />
             </div>
         </div>

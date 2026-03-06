@@ -14,6 +14,34 @@ from app.services.pdf import pdf_service
 
 router = APIRouter()
 
+@router.get("/stats")
+def get_shopify_stats(db: Session = Depends(get_db)):
+    try:
+        from sqlalchemy import func
+        import datetime
+        
+        # Pending orders (unfulfilled)
+        pending = db.query(func.count(Order.id)).filter(Order.status == "unfulfilled").scalar() or 0
+        
+        # Revenue this month
+        today = datetime.datetime.utcnow().date()
+        start_month = today.replace(day=1)
+        revenue = db.query(func.sum(Order.total_price)).filter(
+            Order.created_at >= start_month
+        ).scalar() or 0.0
+        
+        return {
+            "pending_orders": pending,
+            "revenue_month": float(revenue),
+            "to_ship_today": pending
+        }
+    except Exception:
+        return {
+            "pending_orders": 0,
+            "revenue_month": 0.0,
+            "to_ship_today": 0
+        }
+
 @router.get("/orders", response_model=List[OrderOut])
 def list_orders(status: str = "unfulfilled", limit: int = 50, db: Session = Depends(get_db)):
     query = db.query(Order)

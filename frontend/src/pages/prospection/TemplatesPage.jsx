@@ -6,10 +6,7 @@ import TemplateEditorModal from '../../components/prospection/TemplateEditorModa
 
 // Need to set up axios base url if not already done in the context
 const api = axios.create({
-    baseURL: import.meta.env.VITE_API_URL || 'http://localhost/api/v1',
-    headers: {
-        Authorization: `Bearer ${localStorage.getItem('token')}`
-    }
+    baseURL: '/api/v1'
 })
 
 export default function TemplatesPage() {

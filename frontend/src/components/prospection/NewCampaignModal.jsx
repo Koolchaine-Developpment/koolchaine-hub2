@@ -16,6 +16,10 @@ import {
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { X, GripVertical, Info, Zap, Calculator } from 'lucide-react';
+import { apiFetch } from '../../lib/api';
+import { Modal } from '../ui/Modal';
+import { Checkbox } from '../ui/Checkbox';
+import { Slider } from '../ui/Slider';
 
 const NAF_CODES = [
     { code: '7311Z', label: 'Agences de publicité' },
@@ -59,13 +63,13 @@ const SortableItem = ({ id }) => {
     return (
         <div
             ref={setNodeRef}
-            style={style}
-            className="flex items-center gap-3 p-3 bg-white border border-[#E8E4DF] rounded-lg mb-2 shadow-sm"
+            style={{ ...style, border: '1px solid var(--border)' }}
+            className="flex items-center gap-3 p-3 bg-white rounded-lg mb-2 shadow-sm"
         >
-            <div {...attributes} {...listeners} className="cursor-grab text-[#8B837E] hover:text-[#2D2830]">
+            <div {...attributes} {...listeners} className="cursor-grab hover:text-[var(--dark)]" style={{ color: 'var(--gray)' }}>
                 <GripVertical size={18} />
             </div>
-            <span className="text-sm font-medium text-[#2D2830] select-none">{id}</span>
+            <span style={{ fontSize: '14px', fontWeight: 500, color: 'var(--dark)' }} className="select-none">{id}</span>
         </div>
     );
 };
@@ -91,10 +95,12 @@ const NewCampaignModal = ({ isOpen, onClose, onCreated }) => {
     );
 
     useEffect(() => {
-        fetch('/api/v1/prospection/sequences')
-            .then(res => res.json())
-            .then(setSequences);
-    }, []);
+        if (isOpen) {
+            apiFetch('/api/v1/prospection/sequences')
+                .then(res => res.json())
+                .then(setSequences);
+        }
+    }, [isOpen]);
 
     const handleDragEnd = (event) => {
         const { active, over } = event;
@@ -127,9 +133,8 @@ const NewCampaignModal = ({ isOpen, onClose, onCreated }) => {
     const handleEstimate = async () => {
         setLoading(true);
         try {
-            const res = await fetch('/api/v1/prospection/campaigns/estimate', {
+            const res = await apiFetch('/api/v1/prospection/campaigns/estimate', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(getFilters())
             });
             const data = await res.json();
@@ -147,9 +152,8 @@ const NewCampaignModal = ({ isOpen, onClose, onCreated }) => {
             sequence_id: sequenceId ? parseInt(sequenceId) : null
         };
 
-        const res = await fetch('/api/v1/prospection/campaigns', {
+        const res = await apiFetch('/api/v1/prospection/campaigns', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body)
         });
 
@@ -159,220 +163,201 @@ const NewCampaignModal = ({ isOpen, onClose, onCreated }) => {
         }
     };
 
-    if (!isOpen) return null;
-
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-            <div className="bg-white w-full max-w-4xl max-h-[90vh] rounded-3xl shadow-2xl overflow-hidden flex flex-col font-poppins">
-                {/* Header */}
-                <div className="p-6 border-b border-[#E8E4DF] flex justify-between items-center bg-[#FDFCFB]">
+        <Modal open={isOpen} onClose={onClose} title="Nouvelle Campagne de Prospection" width={840}>
+            <p style={{ fontSize: '13px', color: 'var(--gray)', marginBottom: '24px', marginTop: '-12px' }}>
+                Configurez vos filtres et lancez la génération de leads.
+            </p>
+
+            {/* Form Body */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+
+                {/* Left Column: Config */}
+                <div className="space-y-8">
                     <div>
-                        <h2 className="text-xl font-archivo font-black text-[#2D2830] tracking-tight uppercase">Nouvelle Campagne de Prospection</h2>
-                        <p className="text-sm text-[#8B837E]">Configurez vos filtres et lancez la génération de leads.</p>
+                        <label className="section-label block">Nom de la campagne</label>
+                        <input
+                            type="text"
+                            value={name}
+                            onChange={e => setName(e.target.value)}
+                            placeholder="Ex: Agences Pub - Paris"
+                            className="w-full"
+                        />
                     </div>
-                    <button onClick={onClose} className="p-2 hover:bg-[#F0EDE9] rounded-full transition-colors">
-                        <X size={20} className="text-[#8B837E]" />
-                    </button>
+
+                    <div>
+                        <label className="section-label block">Secteurs cibles (NAF)</label>
+                        <div className="flex flex-col gap-1 max-h-48 overflow-y-auto pr-2">
+                            {NAF_CODES.map(n => (
+                                <Checkbox
+                                    key={n.code}
+                                    label={n.label}
+                                    description={`Code NAF: ${n.code}`}
+                                    checked={selectedNaf.includes(n.code)}
+                                    onChange={checked => {
+                                        if (checked) setSelectedNaf([...selectedNaf, n.code]);
+                                        else setSelectedNaf(selectedNaf.filter(c => c !== n.code));
+                                    }}
+                                />
+                            ))}
+                        </div>
+                        <input
+                            type="text"
+                            placeholder="Saisir un code NAF libre..."
+                            value={customNaf}
+                            onChange={e => setCustomNaf(e.target.value.toUpperCase())}
+                            className="w-full mt-3 p-2 text-xs bg-transparent border-b border-transparent focus:outline-none focus:border-[var(--pink)] transition-colors"
+                            style={{ borderBottomColor: 'var(--border)' }}
+                        />
+                    </div>
+
+                    <div>
+                        <label className="section-label block">Taille d'entreprise</label>
+                        <div className="flex flex-col gap-1">
+                            {SIZE_RANGES.map(sr => (
+                                <Checkbox
+                                    key={sr.id}
+                                    label={sr.label}
+                                    checked={selectedSizes.includes(sr.id)}
+                                    onChange={checked => {
+                                        if (checked) setSelectedSizes([...selectedSizes, sr.id]);
+                                        else setSelectedSizes(selectedSizes.filter(s => s !== sr.id));
+                                    }}
+                                />
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="section-label block">Localisation</label>
+                            <select
+                                className="w-full"
+                                value={location.type}
+                                onChange={e => setLocation({ ...location, type: e.target.value })}
+                            >
+                                <option value="france">Toute la France</option>
+                                <option value="departement">Département (CP)</option>
+                                <option value="region">Région (Code)</option>
+                            </select>
+                        </div>
+                        {location.type !== 'france' && (
+                            <div>
+                                <label className="section-label block flex justify-between">Valeur</label>
+                                <input
+                                    type="text"
+                                    value={location.value}
+                                    onChange={e => setLocation({ ...location, value: e.target.value })}
+                                    placeholder={location.type === 'departement' ? 'Ex: 75' : 'Ex: 11'}
+                                    className="w-full"
+                                />
+                            </div>
+                        )}
+                    </div>
+
+                    <div>
+                        <Slider
+                            label="Volume cible"
+                            value={volume}
+                            min={10} max={200} step={10}
+                            displayValue={`${volume} contacts`}
+                            onChange={val => setVolume(val)}
+                        />
+                    </div>
                 </div>
 
-                {/* Form Body */}
-                <div className="flex-1 overflow-y-auto p-8 grid grid-cols-1 lg:grid-cols-2 gap-10">
+                {/* Right Column: Roles & Sequence */}
+                <div className="space-y-8">
+                    <div>
+                        <label className="section-label block">Priorité des postes (Drag & Drop)</label>
+                        <p style={{ fontSize: '10px', color: 'var(--gray)', marginBottom: '16px', fontStyle: 'italic' }}>Dropcontact cherchera les contacts dans cet ordre de priorité.</p>
 
-                    {/* Left Column: Config */}
-                    <div className="space-y-8">
-                        <div>
-                            <label className="block text-xs font-bold text-[#8B837E] uppercase tracking-wider mb-2">Nom de la campagne</label>
-                            <input
-                                type="text"
-                                value={name}
-                                onChange={e => setName(e.target.value)}
-                                placeholder="Ex: Agences Pub - Paris"
-                                className="w-full p-3 bg-[#FDFCFB] border border-[#E8E4DF] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#F5395A] focus:border-transparent transition-all"
-                            />
-                        </div>
-
-                        <div>
-                            <label className="block text-xs font-bold text-[#8B837E] uppercase tracking-wider mb-2">Secteurs cibles (NAF)</label>
-                            <div className="grid grid-cols-1 gap-2 max-h-40 overflow-y-auto p-2 border border-[#F0EDE9] rounded-xl bg-[#FDFCFB]">
-                                {NAF_CODES.map(n => (
-                                    <label key={n.code} className="flex items-center gap-3 p-2 hover:bg-white rounded-lg cursor-pointer transition-colors">
-                                        <input
-                                            type="checkbox"
-                                            className="accent-[#F5395A] w-4 h-4"
-                                            checked={selectedNaf.includes(n.code)}
-                                            onChange={e => {
-                                                if (e.target.checked) setSelectedNaf([...selectedNaf, n.code]);
-                                                else setSelectedNaf(selectedNaf.filter(c => c !== n.code));
-                                            }}
-                                        />
-                                        <span className="text-sm text-[#2D2830]">{n.label} <span className="text-[10px] text-[#8B837E] font-medium ml-1">({n.code})</span></span>
-                                    </label>
-                                ))}
-                            </div>
-                            <input
-                                type="text"
-                                placeholder="Ajouter un code NAF custom..."
-                                value={customNaf}
-                                onChange={e => setCustomNaf(e.target.value.toUpperCase())}
-                                className="w-full mt-2 p-2 text-xs bg-transparent border-b border-[#E8E4DF] focus:border-[#F5395A] focus:outline-none"
-                            />
-                        </div>
-
-                        <div>
-                            <label className="block text-xs font-bold text-[#8B837E] uppercase tracking-wider mb-2">Taille d'entreprise</label>
-                            <div className="flex flex-wrap gap-4">
-                                {SIZE_RANGES.map(sr => (
-                                    <label key={sr.id} className="flex items-center gap-2 cursor-pointer">
-                                        <input
-                                            type="checkbox"
-                                            className="accent-[#F5395A]"
-                                            checked={selectedSizes.includes(sr.id)}
-                                            onChange={e => {
-                                                if (e.target.checked) setSelectedSizes([...selectedSizes, sr.id]);
-                                                else setSelectedSizes(selectedSizes.filter(s => s !== sr.id));
-                                            }}
-                                        />
-                                        <span className="text-sm text-[#2D2830]">{sr.label}</span>
-                                    </label>
-                                ))}
-                            </div>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-xs font-bold text-[#8B837E] uppercase tracking-wider mb-2">Localisation</label>
-                                <select
-                                    className="w-full p-3 bg-[#FDFCFB] border border-[#E8E4DF] rounded-xl text-sm"
-                                    value={location.type}
-                                    onChange={e => setLocation({ ...location, type: e.target.value })}
-                                >
-                                    <option value="france">Toute la France</option>
-                                    <option value="departement">Département (CP)</option>
-                                    <option value="region">Région (Code)</option>
-                                </select>
-                            </div>
-                            {location.type !== 'france' && (
-                                <div>
-                                    <label className="block text-xs font-bold text-[#8B837E] uppercase tracking-wider mb-2">Valeur</label>
-                                    <input
-                                        type="text"
-                                        value={location.value}
-                                        onChange={e => setLocation({ ...location, value: e.target.value })}
-                                        placeholder={location.type === 'departement' ? 'Ex: 75' : 'Ex: 11'}
-                                        className="w-full p-3 bg-[#FDFCFB] border border-[#E8E4DF] rounded-xl text-sm"
-                                    />
+                        <DndContext
+                            sensors={sensors}
+                            collisionDetection={closestCenter}
+                            onDragEnd={handleDragEnd}
+                        >
+                            <SortableContext
+                                items={roles}
+                                strategy={verticalListSortingStrategy}
+                            >
+                                <div className="p-2 rounded-xl" style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)' }}>
+                                    {roles.map(role => (
+                                        <SortableItem key={role} id={role} />
+                                    ))}
                                 </div>
+                            </SortableContext>
+                        </DndContext>
+                    </div>
+
+                    <div>
+                        <label className="section-label block">Séquence à associer</label>
+                        <select
+                            value={sequenceId}
+                            onChange={e => setSequenceId(e.target.value)}
+                            className="w-full"
+                        >
+                            <option value="">Aucune séquence (enrichissement seul)</option>
+                            {sequences.map(s => (
+                                <option key={s.id} value={s.id}>{s.name}</option>
+                            ))}
+                        </select>
+                    </div>
+
+                    {/* Estimation Box */}
+                    <div className="card card-dark" style={{ padding: '24px' }}>
+                        <div className="flex justify-between items-start mb-4">
+                            <div className="flex items-center gap-2">
+                                <Calculator size={18} style={{ color: 'var(--pink)' }} />
+                                <span className="card-label" style={{ color: 'rgba(255,255,255,0.7)', margin: 0 }}>Estimation SIRENE</span>
+                            </div>
+                            {loading ? (
+                                <div className="animate-spin rounded-full h-4 w-4 border-2 border-white/20 border-t-white"></div>
+                            ) : (
+                                <button
+                                    onClick={handleEstimate}
+                                    style={{ fontSize: '10px', fontWeight: 700, color: 'var(--pink)', textTransform: 'uppercase', background: 'transparent', border: 'none', cursor: 'pointer' }}
+                                    className="transition-colors hover:text-white"
+                                >
+                                    RAFRAÎCHIR
+                                </button>
                             )}
                         </div>
 
-                        <div>
-                            <label className="block text-xs font-bold text-[#8B837E] uppercase tracking-wider mb-2 flex justify-between">
-                                <span>Volume cible</span>
-                                <span className="text-[#F5395A] font-black">{volume} contacts</span>
-                            </label>
-                            <input
-                                type="range"
-                                min="10"
-                                max="200"
-                                step="10"
-                                value={volume}
-                                onChange={e => setVolume(parseInt(e.target.value))}
-                                className="w-full accent-[#F5395A] h-2 bg-[#F0EDE9] rounded-lg appearance-none cursor-pointer mt-2"
-                            />
+                        <div className="flex items-baseline gap-2">
+                            <span className="card-value" style={{ color: '#FFF' }}>
+                                {estimation === null ? '--' : estimation.toLocaleString()}
+                            </span>
+                            <span style={{ fontSize: '12px', fontWeight: 500, color: 'rgba(255,255,255,0.7)' }}>Sociétés identifiées</span>
+                        </div>
+
+                        <div className="mt-4 flex items-center gap-2 p-2 rounded-lg" style={{ backgroundColor: 'rgba(255,255,255,0.05)', fontSize: '10px', color: 'rgba(255,255,255,0.7)' }}>
+                            <Info size={12} />
+                            <span>Basé sur les filtres NAF et la taille d'entreprise.</span>
                         </div>
                     </div>
-
-                    {/* Right Column: Roles & Sequence */}
-                    <div className="space-y-8">
-                        <div>
-                            <label className="block text-xs font-bold text-[#8B837E] uppercase tracking-wider mb-2">Priorité des postes (Drag & Drop)</label>
-                            <p className="text-[10px] text-[#8B837E] mb-4 italic">Dropcontact cherchera les contacts dans cet ordre de priorité.</p>
-
-                            <DndContext
-                                sensors={sensors}
-                                collisionDetection={closestCenter}
-                                onDragEnd={handleDragEnd}
-                            >
-                                <SortableContext
-                                    items={roles}
-                                    strategy={verticalListSortingStrategy}
-                                >
-                                    <div className="p-2 bg-[#FDFCFB] border border-[#F0EDE9] rounded-xl">
-                                        {roles.map(role => (
-                                            <SortableItem key={role} id={role} />
-                                        ))}
-                                    </div>
-                                </SortableContext>
-                            </DndContext>
-                        </div>
-
-                        <div>
-                            <label className="block text-xs font-bold text-[#8B837E] uppercase tracking-wider mb-2">Séquence à associer</label>
-                            <select
-                                value={sequenceId}
-                                onChange={e => setSequenceId(e.target.value)}
-                                className="w-full p-3 bg-[#FDFCFB] border border-[#E8E4DF] rounded-xl text-sm"
-                            >
-                                <option value="">Aucune séquence (enrichissement seul)</option>
-                                {sequences.map(s => (
-                                    <option key={s.id} value={s.id}>{s.name}</option>
-                                ))}
-                            </select>
-                        </div>
-
-                        {/* Estimation Box */}
-                        <div className="p-6 bg-gradient-to-br from-[#2D2830] to-[#1A161C] rounded-2xl text-white">
-                            <div className="flex justify-between items-start mb-4">
-                                <div className="flex items-center gap-2">
-                                    <Calculator size={18} className="text-[#F5395A]" />
-                                    <span className="text-xs font-archivo font-bold uppercase tracking-widest text-[#8B837E]">Estimation SIRENE</span>
-                                </div>
-                                {loading ? (
-                                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white/20 border-t-white"></div>
-                                ) : (
-                                    <button
-                                        onClick={handleEstimate}
-                                        className="text-[10px] font-bold text-[#F5395A] hover:text-white transition-colors"
-                                    >
-                                        REFRAÎCHIR
-                                    </button>
-                                )}
-                            </div>
-
-                            <div className="flex items-baseline gap-2">
-                                <span className="text-3xl font-archivo font-black">
-                                    {estimation === null ? '--' : estimation.toLocaleString()}
-                                </span>
-                                <span className="text-xs font-medium text-[#8B837E]">Sociétés identifiées</span>
-                            </div>
-
-                            <div className="mt-4 flex items-center gap-2 p-2 bg-white/5 rounded-lg text-[10px] text-[#8B837E]">
-                                <Info size={12} />
-                                <span>Basé sur les filtres NAF et la taille d'entreprise.</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Footer */}
-                <div className="p-6 border-t border-[#E8E4DF] bg-[#FDFCFB] flex justify-end gap-4">
-                    <button
-                        onClick={onClose}
-                        className="px-6 py-3 text-sm font-bold text-[#8B837E] hover:text-[#2D2830] transition-colors"
-                    >
-                        Annuler
-                    </button>
-                    <button
-                        onClick={handleLaunch}
-                        disabled={!name || selectedNaf.length === 0}
-                        className="px-8 py-3 bg-[#F5395A] text-white rounded-xl font-archivo font-black text-sm uppercase tracking-wider flex items-center gap-2 hover:bg-[#D42B48] disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-[#F5395A]/20"
-                    >
-                        <Zap size={18} fill="currentColor" />
-                        Lancer la campagne
-                    </button>
                 </div>
             </div>
-        </div>
+
+            {/* Footer */}
+            <div className="mt-8 pt-6 border-t flex justify-end gap-3" style={{ borderColor: 'var(--border)' }}>
+                <button
+                    onClick={onClose}
+                    className="btn btn-ghost"
+                >
+                    Annuler
+                </button>
+                <button
+                    onClick={handleLaunch}
+                    disabled={!name || selectedNaf.length === 0}
+                    className="btn btn-pink"
+                    style={{ opacity: (!name || selectedNaf.length === 0) ? 0.5 : 1 }}
+                >
+                    <Zap size={16} fill="currentColor" />
+                    Lancer la campagne
+                </button>
+            </div>
+        </Modal>
     );
 };
 
