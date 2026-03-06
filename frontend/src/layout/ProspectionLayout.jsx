@@ -15,7 +15,7 @@ const ProspectionLayout = () => {
     return (
         <div className="flex flex-col h-full">
             {/* Tab bar */}
-            <div className="sub-nav" style={{ margin: '-32px -32px 32px -32px' }}>
+            <div className="sub-nav" style={{ margin: '0 -32px 32px -32px' }}>
                 {tabs.map((tab) => (
                     <NavLink
                         key={tab.name}

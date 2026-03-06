@@ -98,7 +98,18 @@ const NewCampaignModal = ({ isOpen, onClose, onCreated }) => {
         if (isOpen) {
             apiFetch('/api/v1/prospection/sequences')
                 .then(res => res.json())
-                .then(setSequences);
+                .then(data => {
+                    if (Array.isArray(data)) {
+                        setSequences(data);
+                    } else {
+                        console.error('Sequences is not an array:', data);
+                        setSequences([]);
+                    }
+                })
+                .catch(err => {
+                    console.error('Failed to fetch sequences:', err);
+                    setSequences([]);
+                });
         }
     }, [isOpen]);
 

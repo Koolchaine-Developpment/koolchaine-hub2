@@ -13,7 +13,7 @@ import {
     ArrowRight
 } from 'lucide-react';
 import NewCampaignModal from '../../components/prospection/NewCampaignModal';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { apiFetch } from '../../lib/api';
 
 const CampaignsPage = () => {
@@ -22,6 +22,7 @@ const CampaignsPage = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [isModalOpen, setIsModalOpen] = useState(false);
     const navigate = useNavigate();
+    const location = useLocation();
 
     const fetchCampaigns = async () => {
         try {
@@ -37,10 +38,26 @@ const CampaignsPage = () => {
 
     useEffect(() => {
         fetchCampaigns();
-        // Auto-refresh stats for active campaigns
+        // Check for ?new=true to open modal automatically
+        const params = new URLSearchParams(location.search);
+        if (params.get('new') === 'true') {
+            setIsModalOpen(true);
+            // Remove the param without refreshing to avoid re-opening on manual refresh
+            window.history.replaceState({}, '', location.pathname);
+        }
+
         const interval = setInterval(fetchCampaigns, 5000);
         return () => clearInterval(interval);
-    }, []);
+    }, [location.pathname, location.search]);
+
+    // Fallback if location object doesn't trigger effect correctly
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('new') === 'true') {
+            setIsModalOpen(true);
+            window.history.replaceState({}, '', window.location.pathname);
+        }
+    }, [isModalOpen === false]); // Only check when closed
 
     const handleAction = async (id, action) => {
         await apiFetch(`/api/v1/prospection/campaigns/${id}/${action}`, {

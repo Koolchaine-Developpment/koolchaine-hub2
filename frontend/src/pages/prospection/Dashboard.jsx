@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useRef } from 'react'
 import axios from 'axios'
-import { Users, UserCheck, MessageCircleReply, Target, Zap, Clock, CheckCircle, AlertCircle, Play } from 'lucide-react'
+import { Users, UserCheck, MessageCircleReply, Target, Zap, Clock, CheckCircle, AlertCircle, Play, Terminal } from 'lucide-react'
 import { apiFetch } from '../../lib/api'
 
 const StatCard = ({ title, value, icon: Icon, cardClass = "card", meta }) => (
@@ -24,7 +24,11 @@ const Dashboard = () => {
         conversion_rate: 0,
         last_job: null,
     })
-    const [launching, setLaunching] = useState(false)
+    const [running, setRunning] = useState(false)
+    const [jobLogs, setJobLogs] = useState([])
+    const [jobProgress, setJobProgress] = useState({ societes: 0, contacts: 0, emails: 0 })
+    const [jobStatus, setJobStatus] = useState(null)
+    const logsEndRef = useRef(null)
 
     const fetchStats = () => {
         axios.get('/api/v1/prospection/stats')
@@ -38,10 +42,18 @@ const Dashboard = () => {
         return () => clearInterval(interval)
     }, [])
 
+    useEffect(() => {
+        logsEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    }, [jobLogs])
+
     const launchPipeline = async () => {
-        setLaunching(true)
+        setRunning(true)
+        setJobLogs([])
+        setJobProgress({ societes: 0, contacts: 0, emails: 0 })
+        setJobStatus('running')
+
         try {
-            await apiFetch('/api/v1/prospection/jobs/run', {
+            const res = await apiFetch('/api/v1/prospection/jobs/run', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -49,12 +61,37 @@ const Dashboard = () => {
                     effectifs_min: 200,
                 }),
             })
-            // Refresh stats after launch
-            setTimeout(fetchStats, 2000)
+            const data = await res.json()
+            const jobId = data.job_id
+
+            // Polling toutes les 3 secondes
+            const interval = setInterval(async () => {
+                try {
+                    const logsRes = await apiFetch(`/api/v1/prospection/jobs/${jobId}/logs`)
+                    const logsData = await logsRes.json()
+
+                    setJobLogs(logsData.log || [])
+                    setJobProgress({
+                        societes: logsData.nb_societes_trouvees || 0,
+                        contacts: logsData.nb_contacts_enrichis || 0,
+                        emails: logsData.nb_emails_generes || 0
+                    })
+                    setJobStatus(logsData.status)
+
+                    if (logsData.status === 'done' || logsData.status === 'error') {
+                        clearInterval(interval)
+                        setRunning(false)
+                        fetchStats()
+                    }
+                } catch (err) {
+                    console.error('Polling error:', err)
+                    clearInterval(interval)
+                    setRunning(false)
+                }
+            }, 3000)
         } catch (err) {
             console.error(err)
-        } finally {
-            setLaunching(false)
+            setRunning(false)
         }
     }
 
@@ -132,12 +169,12 @@ const Dashboard = () => {
                     <div className="section-title" style={{ margin: 0 }}>Pipeline de scraping</div>
                     <button
                         onClick={launchPipeline}
-                        disabled={launching || (lastJob && lastJob.status === 'running')}
+                        disabled={running || (lastJob && lastJob.status === 'running')}
                         className="btn btn-pink"
                         style={{ fontSize: '13px' }}
                     >
                         <Play size={14} />
-                        {launching ? 'Lancement...' : 'Lancer maintenant'}
+                        {running ? 'En cours...' : 'Lancer maintenant'}
                     </button>
                 </div>
 
@@ -183,28 +220,77 @@ const Dashboard = () => {
                     </div>
                 )}
 
-                {lastJob && lastJob.log && lastJob.log.length > 0 && (
-                    <div style={{ marginTop: '24px', borderTop: '1px solid var(--border)', paddingTop: '16px' }}>
-                        <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--gray)', textTransform: 'uppercase', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <Clock size={12} /> Live Logs
+                {/* Barre de statut */}
+                {running && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--green)', animation: 'pulse 1s infinite' }} />
+                        <span style={{ fontSize: '12px', color: 'var(--dark)', fontWeight: 500 }}>
+                            Pipeline en cours...
+                        </span>
+                    </div>
+                )}
+
+                {/* Compteurs progression */}
+                {(running || jobProgress?.societes > 0) && (
+                    <div style={{ display: 'flex', gap: '24px', marginBottom: '12px' }}>
+                        <div style={{ textAlign: 'center' }}>
+                            <div style={{ fontFamily: 'var(--font-display)', fontSize: '20px', color: 'var(--dark)' }}>
+                                {jobProgress?.societes || 0}
+                            </div>
+                            <div style={{ fontSize: '10px', color: 'var(--gray)', letterSpacing: '0.05em' }}>SOCIÉTÉS</div>
                         </div>
-                        <div style={{
-                            background: 'var(--bg-dark)',
-                            borderRadius: '8px',
-                            padding: '12px',
-                            fontSize: '12px',
-                            fontFamily: 'monospace',
-                            maxHeight: '150px',
-                            overflowY: 'auto',
-                            color: 'var(--border)'
-                        }}>
-                            {lastJob.log.map((l, i) => (
-                                <div key={i} style={{ marginBottom: '4px', display: 'flex', gap: '8px' }}>
-                                    <span style={{ color: 'var(--pink)', opacity: 0.7 }}>[{new Date(l.time).toLocaleTimeString('fr-FR')}]</span>
-                                    <span>{l.msg}</span>
-                                </div>
-                            ))}
+                        <div style={{ textAlign: 'center' }}>
+                            <div style={{ fontFamily: 'var(--font-display)', fontSize: '20px', color: 'var(--pink)' }}>
+                                {jobProgress?.contacts || 0}
+                            </div>
+                            <div style={{ fontSize: '10px', color: 'var(--gray)', letterSpacing: '0.05em' }}>CONTACTS</div>
                         </div>
+                        <div style={{ textAlign: 'center' }}>
+                            <div style={{ fontFamily: 'var(--font-display)', fontSize: '20px', color: 'var(--green)' }}>
+                                {jobProgress?.emails || 0}
+                            </div>
+                            <div style={{ fontSize: '10px', color: 'var(--gray)', letterSpacing: '0.05em' }}>EMAILS</div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Terminal logs */}
+                {jobLogs?.length > 0 && (
+                    <div style={{
+                        background: 'var(--dark)',
+                        borderRadius: 'var(--radius-md)',
+                        padding: '12px 16px',
+                        maxHeight: '180px',
+                        overflowY: 'auto'
+                    }}>
+                        {jobLogs.map((log, i) => (
+                            <div key={i} style={{
+                                fontSize: '11px',
+                                color: log.msg?.includes('❌') ? '#ff6b6b' : log.msg?.includes('✅') ? '#6bff9e' : '#9B9',
+                                fontFamily: 'monospace',
+                                marginBottom: '3px',
+                                lineHeight: 1.4
+                            }}>
+                                <span style={{ opacity: 0.5 }}>{log.time?.split('T')[1]?.split('.')[0]} </span>
+                                {log.msg}
+                            </div>
+                        ))}
+                        <div ref={logsEndRef} />
+                    </div>
+                )}
+
+                {/* Message succès */}
+                {jobStatus === 'done' && !running && (
+                    <div style={{
+                        marginTop: '12px',
+                        padding: '10px 14px',
+                        background: 'rgba(0,200,150,0.1)',
+                        borderRadius: 'var(--radius-md)',
+                        fontSize: '12px',
+                        color: 'var(--green)',
+                        fontWeight: 500
+                    }}>
+                        ✅ Pipeline terminé — {jobProgress?.societes} sociétés, {jobProgress?.contacts} contacts, {jobProgress?.emails} emails
                     </div>
                 )}
             </div>

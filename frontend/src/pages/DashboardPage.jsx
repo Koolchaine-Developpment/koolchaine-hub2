@@ -109,7 +109,7 @@ export default function DashboardPage() {
                 </div>
                 <div style={{ display: 'flex', gap: '8px' }}>
                     <button className="btn btn-ghost">Exporter</button>
-                    <button className="btn btn-pink" onClick={() => navigate('/prospection/campaigns')}>+ Nouvelle campagne</button>
+                    <button className="btn btn-pink" onClick={() => navigate('/prospection/campaigns?new=true')}>+ Nouvelle campagne</button>
                 </div>
             </div>
 

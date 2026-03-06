@@ -699,6 +699,18 @@ tbody td {
   }
 }
 
+@keyframes pulse {
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.3;
+  }
+}
+
 .animate-fade-in {
   animation: fadeIn 0.25s ease both;
 }
