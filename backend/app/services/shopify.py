@@ -43,31 +43,13 @@ class ShopifyService:
             return None
 
     def fetch_recent_orders(self, limit: int = 50, status: str = "any") -> List[Dict[str, Any]]:
-        """Fetch recent orders from Shopify."""
-        data = self._request("GET", "orders.json", params={"limit": limit, "status": status})
-        if data and "orders" in data:
-            return data["orders"]
+        """Stub: To be implemented by B2C collaborator."""
+        logger.info("ShopifyService.fetch_recent_orders called (Stub).")
         return []
 
     def fetch_product_inventory(self) -> List[Dict[str, Any]]:
-        """Fetch inventory levels for all products (simplified)."""
-        # In a real app we'd fetch products -> variants -> inventory_item_ids -> inventory_levels
-        # Standard Shopify REST requires multiple calls for accurate stock info
-        
-        products_data = self._request("GET", "products.json", params={"limit": 250})
-        if not products_data or "products" not in products_data:
-            return []
-            
-        inventory = []
-        for product in products_data["products"]:
-            # Aggregate variants stock
-            total_stock = sum([v.get("inventory_quantity", 0) for v in product.get("variants", [])])
-            inventory.append({
-                "product_id": str(product["id"]),
-                "product_name": product["title"],
-                "current_stock": total_stock
-            })
-            
-        return inventory
+        """Stub: To be implemented by B2C collaborator."""
+        logger.info("ShopifyService.fetch_product_inventory called (Stub).")
+        return []
 
 shopify_service = ShopifyService()

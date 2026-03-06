@@ -83,41 +83,9 @@ def process_pending_emails():
         db.close()
 
 def sync_shopify_orders():
-    """Background task to sync recent Shopify orders periodically."""
-    logger.info("Running scheduled Shopify sync...")
-    db: Session = SessionLocal()
-    try:
-        from app.api.shopify import sync_orders
-        sync_orders(db)
-    except Exception as e:
-        logger.error(f"Failed to sync Shopify orders securely: {e}")
-    finally:
-        db.close()
+    """Stub: Shopify sync task."""
+    logger.info("Shopify sync task is currently disabled (Stub).")
 
 def check_stock_alerts():
-    """Background task to check stock levels vs thresholds and send alerts."""
-    logger.info("Running daily stock alert check...")
-    db: Session = SessionLocal()
-    try:
-        from app.services.shopify import shopify_service
-        from app.models.stock_alert import StockAlert
-        
-        inventory = shopify_service.fetch_product_inventory()
-        inventory_dict = {item['product_id']: item['current_stock'] for item in inventory}
-        
-        alerts = db.query(StockAlert).all()
-        for alert in alerts:
-            current = inventory_dict.get(alert.product_id)
-            if current is not None:
-                alert.current_stock = current
-                if current <= alert.threshold:
-                    # In a real app we'd dispatch an email here to administration.
-                    logger.warning(f"STOCK ALERT: {alert.product_name} is at {current} (Threshold: {alert.threshold})!")
-                    alert.alerted_at = datetime.utcnow()
-                    
-        db.commit()
-    except Exception as e:
-        db.rollback()
-        logger.error(f"Failed to check stock alerts: {e}")
-    finally:
-        db.close()
+    """Stub: Stock alert task."""
+    logger.info("Stock alert task is currently disabled (Stub).")
