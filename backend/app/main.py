@@ -16,6 +16,8 @@ from contextlib import asynccontextmanager
 from apscheduler.schedulers.background import BackgroundScheduler
 from app.tasks import process_pending_emails, sync_shopify_orders, check_stock_alerts
 
+from app.scheduler import setup_scheduler
+
 # Background scheduler setup
 scheduler = BackgroundScheduler()
 scheduler.add_job(process_pending_emails, "interval", hours=1)
@@ -26,6 +28,7 @@ scheduler.add_job(check_stock_alerts, "cron", hour=8, minute=0)
 async def lifespan(app: FastAPI):
     # Startup actions
     scheduler.start()
+    setup_scheduler() # Start the new prospection scheduler
     yield
     # Shutdown actions
     scheduler.shutdown()

@@ -40,3 +40,12 @@ class Contact(Base):
     company = relationship("Company", back_populates="contacts")
     campaign = relationship("Campaign", back_populates="contacts")
     email_logs = relationship("EmailLog", back_populates="contact", cascade="all, delete-orphan")
+
+    @property
+    def prenom(self): return self.first_name
+    @property
+    def nom(self): return self.last_name
+    @property
+    def poste(self): return self.job_title
+    @property
+    def statut(self): return self.status

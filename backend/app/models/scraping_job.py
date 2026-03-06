@@ -12,7 +12,7 @@ class ScrapingJob(Base):
     nb_societes_trouvees = Column(Integer, default=0)
     nb_contacts_enrichis = Column(Integer, default=0)
     nb_emails_generes = Column(Integer, default=0)
-    log = Column(Text, nullable=True)
+    log = Column(JSON, default=[])
     started_at = Column(DateTime, nullable=True)
     finished_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)

@@ -182,6 +182,31 @@ const Dashboard = () => {
                         <p>Aucun scraping lancé. Cliquez sur "Lancer maintenant" pour démarrer le pipeline.</p>
                     </div>
                 )}
+
+                {lastJob && lastJob.log && lastJob.log.length > 0 && (
+                    <div style={{ marginTop: '24px', borderTop: '1px solid var(--border)', paddingTop: '16px' }}>
+                        <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--gray)', textTransform: 'uppercase', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <Clock size={12} /> Live Logs
+                        </div>
+                        <div style={{
+                            background: 'var(--bg-dark)',
+                            borderRadius: '8px',
+                            padding: '12px',
+                            fontSize: '12px',
+                            fontFamily: 'monospace',
+                            maxHeight: '150px',
+                            overflowY: 'auto',
+                            color: 'var(--border)'
+                        }}>
+                            {lastJob.log.map((l, i) => (
+                                <div key={i} style={{ marginBottom: '4px', display: 'flex', gap: '8px' }}>
+                                    <span style={{ color: 'var(--pink)', opacity: 0.7 }}>[{new Date(l.time).toLocaleTimeString('fr-FR')}]</span>
+                                    <span>{l.msg}</span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     )

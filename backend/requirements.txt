@@ -31,3 +31,6 @@ aiofiles
 itsdangerous
 cloudinary
 Pillow
+playwright
+fake-useragent
+pappers-api-client

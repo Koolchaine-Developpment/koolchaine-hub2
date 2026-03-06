@@ -308,13 +308,13 @@ def get_pipeline_stats(db: Session = Depends(get_db)):
         ).scalar() or 0
         
         # Active sectors
-        sectors = db.query(Company.naf_code, func.count(Company.id).label('count')) \
-            .filter(Company.naf_code.isnot(None)) \
-            .group_by(Company.naf_code) \
+        sectors = db.query(Company.secteur, func.count(Company.id).label('count')) \
+            .filter(Company.secteur.isnot(None)) \
+            .group_by(Company.secteur) \
             .order_by(func.count(Company.id).desc()) \
             .limit(3) \
             .all()
-        active_sectors = [s.naf_code for s in sectors]
+        active_sectors = [s.secteur for s in sectors]
         
         # Contacted this week
         today = datetime.datetime.utcnow().date()
@@ -336,6 +336,7 @@ def get_pipeline_stats(db: Session = Depends(get_db)):
                 "nb_emails_generes": last_job.nb_emails_generes,
                 "started_at": last_job.started_at.isoformat() if last_job.started_at else None,
                 "finished_at": last_job.finished_at.isoformat() if last_job.finished_at else None,
+                "log": last_job.log
             }
         
         return {
@@ -351,11 +352,12 @@ def get_pipeline_stats(db: Session = Depends(get_db)):
             "enrichment_pct": round((total / total_companies) * 100) if total_companies > 0 else 0,
             "contacted_pct": round((contacted / total) * 100) if total > 0 else 0,
             "reply_pct": round((replied / contacted) * 100) if contacted > 0 else 0,
-            "active_sectors": active_sectors or ["Services", "Commerce", "Industrie"],
+            "active_sectors": active_sectors or ["evenementiel", "mode", "com"],
             "contacted_week": contacted_week,
             "last_job": last_job_data,
         }
-    except Exception:
+    except Exception as e:
+        print(f"Stats error: {e}")
         return {
             "total_prospects": 0, "contacted": 0, "replied": 0, "a_valider": 0,
             "conversion_rate": 0, "total_scraped": 0, "emails_found": 0,
@@ -408,7 +410,7 @@ def list_jobs(db: Session = Depends(get_db)):
 
 @router.get("/jobs/{job_id}")
 def get_job(job_id: int, db: Session = Depends(get_db)):
-    """Détail d'un job avec log complet."""
+    """Détail d'un job avec log complet JSON."""
     job = db.query(ScrapingJob).filter(ScrapingJob.id == job_id).first()
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
@@ -439,7 +441,7 @@ def list_societes(
     per_page: int = 50,
     db: Session = Depends(get_db)
 ):
-    """Liste les sociétés avec filtres."""
+    """Liste les sociétés avec filtres (utilise les nouveaux champs)."""
     query = db.query(Company)
     
     if secteur:
@@ -460,12 +462,17 @@ def list_societes(
         "results": [{
             "id": c.id,
             "siren": c.siren,
+            "nom": c.name,
             "name": c.name,
-            "naf_code": c.naf_code,
+            "code_naf": c.code_naf or c.naf_code,
+            "naf_code": c.code_naf or c.naf_code,
             "secteur": c.secteur,
             "effectifs": c.effectifs,
-            "city": c.city,
-            "domain": c.domain,
+            "ville": c.ville or c.city,
+            "city": c.ville or c.city,
+            "code_postal": c.code_postal,
+            "domaine": c.site_web or c.domain,
+            "domain": c.site_web or c.domain,
             "intent_score": c.intent_score,
             "intent_levee_fonds": c.intent_levee_fonds,
             "intent_salon": c.intent_salon,
@@ -479,6 +486,26 @@ def list_societes(
 # =============================================
 # CONTACTS VALIDATION
 # =============================================
+
+@router.get("/contacts", response_model=List[ContactOut])
+def get_contacts(
+    campaign_id: Optional[int] = None,
+    status: Optional[str] = None,
+    min_score: Optional[int] = None,
+    db: Session = Depends(get_db)
+):
+    """Liste les contacts avec filtres de scoring."""
+    query = db.query(Contact)
+    
+    if campaign_id:
+        query = query.filter(Contact.campaign_id == campaign_id)
+    if status:
+        query = query.filter(Contact.status == status)
+    if min_score is not None:
+        query = query.filter(Contact.score_pertinence >= min_score)
+        
+    return query.order_by(Contact.score_pertinence.desc()).limit(1000).all()
+
 
 @router.patch("/contacts/{contact_id}/valider")
 def valider_contact(contact_id: int, db: Session = Depends(get_db)):

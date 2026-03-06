@@ -16,9 +16,14 @@ class Company(Base):
     
     # Nouveaux champs pipeline
     secteur = Column(String, nullable=True)          # evenementiel | mode | com | hotel | ehpad
+    code_naf = Column(String, nullable=True)         # Alias pour naf_code
     effectifs = Column(Integer, nullable=True)
     telephone = Column(String, nullable=True)
     site_url = Column(String, nullable=True)
+    site_web = Column(String, nullable=True)         # Alias ou champ additionnel
+    ville = Column(String, nullable=True)
+    code_postal = Column(String, nullable=True)
+    statut = Column(String, default="nouveau")       # nouveau | a_contacter | en_cours | refuse
     
     # Intent signals
     intent_levee_fonds = Column(Boolean, default=False)

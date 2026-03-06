@@ -1,74 +1,51 @@
-"""
-Score de pertinence d'un contact (0-100).
-
-Critères et poids :
-- INTENT SIGNALS (50pts max)
-- SECTEUR (25pts max)
-- TAILLE (15pts max)
-- EMAIL TROUVÉ (10pts)
-
-Seuil auto-validation : >= 70
-Seuil auto-rejet : <= 20
-Entre 20 et 70 : validation manuelle
-"""
-
 from typing import Dict, Any
 
+class Scorter:
+    def calculate_score(self, intent_data: Dict[str, Any], company_data: Dict[str, Any], contact_data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Calcule un score de pertinence entre 0 et 100.
+        Logique basée sur :
+        - Signaux d'intention
+        - Secteur d'activité
+        - Taille de l'entreprise
+        - Qualité de l'email (confidence)
+        """
+        score = 0
+        details = {}
 
-SECTEUR_SCORES = {
-    "evenementiel": 25,
-    "mode": 20,
-    "com": 15,
-    "hotel": 10,
-    "ehpad": 8,
-}
+        # 1. Intent Signals (40 pts)
+        intent_score = intent_data.get("intent_score", 0)
+        score += (intent_score * 0.4)
+        details["intent"] = round(intent_score * 0.4, 1)
 
+        # 2. Secteur (20 pts)
+        secteur = company_data.get("secteur", "").lower()
+        priority_secteurs = ["evenementiel", "hotel", "com"]
+        if secteur in priority_secteurs:
+            score += 20
+            details["secteur"] = 20
+        else:
+            details["secteur"] = 0
 
-def score_contact(
-    intent_score: int = 0,
-    secteur: str = "",
-    effectifs: int = 0,
-    email: str = None,
-    email_confidence: float = 0,
-) -> Dict[str, Any]:
-    """
-    Calcule le score de pertinence d'un contact.
-    Retourne : { score: int, detail: dict }
-    """
-    detail = {}
-    
-    # 1. Intent signals (50pts max, plafonné)
-    intent_pts = min(intent_score, 50)
-    detail["intent"] = intent_pts
-    
-    # 2. Secteur (25pts max)
-    secteur_pts = SECTEUR_SCORES.get(secteur, 0)
-    detail["secteur"] = secteur_pts
-    
-    # 3. Taille entreprise (15pts max)
-    if effectifs >= 500:
-        taille_pts = 15
-    elif effectifs >= 200:
-        taille_pts = 10
-    elif effectifs >= 100:
-        taille_pts = 5
-    else:
-        taille_pts = 0
-    detail["taille"] = taille_pts
-    
-    # 4. Email trouvé (10pts)
-    if email and email_confidence >= 0.8:
-        email_pts = 10
-    elif email and email_confidence >= 0.5:
-        email_pts = 5
-    else:
-        email_pts = 0
-    detail["email"] = email_pts
-    
-    # Score final plafonné à 100
-    total = min(intent_pts + secteur_pts + taille_pts + email_pts, 100)
-    
-    return {
-        "score": total,
-        "detail": detail
-    }
+        # 3. Taille (20 pts)
+        effectifs = company_data.get("effectifs", 0)
+        if effectifs >= 200:
+            score += 20
+            details["taille"] = 20
+        elif effectifs >= 50:
+            score += 10
+            details["taille"] = 10
+        else:
+            details["taille"] = 0
+
+        # 4. Email Confidence (20 pts)
+        confidence = contact_data.get("email_confidence", 0)
+        score += (confidence * 100 * 0.2)
+        details["email"] = round(confidence * 100 * 0.2, 1)
+
+        return {
+            "score": min(100, round(score)),
+            "detail": details
+        }
+
+scorer = Scorter()

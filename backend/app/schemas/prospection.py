@@ -6,16 +6,30 @@ from app.models.contact import ContactStatus
 class CompanyBase(BaseModel):
     siren: str
     name: str
+    nom: Optional[str] = None
     naf_code: Optional[str] = None
-    size_range: Optional[str] = None
+    code_naf: Optional[str] = None
     city: Optional[str] = None
+    ville: Optional[str] = None
     domain: Optional[str] = None
+    domaine: Optional[str] = None
+    size_range: Optional[str] = None
 
 class CompanyCreate(CompanyBase):
     pass
 
 class CompanyOut(CompanyBase):
     id: int
+    secteur: Optional[str] = None
+    effectifs: Optional[int] = None
+    ville: Optional[str] = None
+    code_postal: Optional[str] = None
+    site_web: Optional[str] = None
+    intent_score: int = 0
+    intent_levee_fonds: bool = False
+    intent_salon: bool = False
+    intent_recrutement_event: bool = False
+    statut: Optional[str] = None
     created_at: datetime
 
     class Config:
@@ -23,10 +37,14 @@ class CompanyOut(CompanyBase):
 
 class ContactBase(BaseModel):
     first_name: str
+    prenom: Optional[str] = None
     last_name: str
+    nom: Optional[str] = None
     email: Optional[EmailStr] = None
     job_title: Optional[str] = None
+    poste: Optional[str] = None
     status: ContactStatus = ContactStatus.NEW
+    statut: Optional[ContactStatus] = None
 
 class ContactCreate(ContactBase):
     company_id: int
@@ -34,6 +52,10 @@ class ContactCreate(ContactBase):
 class ContactOut(ContactBase):
     id: int
     company_id: int
+    score_pertinence: int = 0
+    linkedin_url: Optional[str] = None
+    email_source: Optional[str] = None
+    email_confidence: float = 0
     created_at: datetime
     company: Optional[CompanyOut] = None
 
