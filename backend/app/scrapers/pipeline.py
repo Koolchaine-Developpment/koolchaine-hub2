@@ -120,7 +120,15 @@ async def run_pipeline(job_id: int):
         db.close()
 
 def start_pipeline_async(job_id: int):
-    """Lance le pipeline en tâche de fond async."""
+    """Lance le pipeline en tâche de fond via asyncio."""
     import asyncio
-    loop = asyncio.get_event_loop()
-    loop.create_task(run_pipeline(job_id))
+    import threading
+
+    def run_in_new_loop():
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        loop.run_until_complete(run_pipeline(job_id))
+        loop.close()
+
+    thread = threading.Thread(target=run_in_new_loop)
+    thread.start()
